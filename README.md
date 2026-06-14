@@ -29,3 +29,32 @@ A web-based business management application for road marking companies in German
 
 ## Environment Variables
 Create a `.env` file based on `.env.example`:
+
+## Screenshots
+
+### My Calendar
+![Schedule](screenshots/calendar.png)
+
+### Contracts
+![Contracts](screenshots/contracts.png)
+
+### Customers
+![Customers](screenshots/customers.png)
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### Leave Request
+![Leave Request](screenshots/leave_request.png)
+
+### Weekly Schedule
+![Schedule](screenshots/schedule.png)
+
+### Vehicles
+![Vehicles](screenshots/vehicles.png)
+
+### Warehouse
+![Warehouse](screenshots/warehouse.png)
+
+### Worker Report
+![Worker Report](screenshots/worker_report.png)

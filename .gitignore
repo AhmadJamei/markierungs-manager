@@ -19,3 +19,6 @@ media/
 # Windows
 Thumbs.db
 desktop.ini
+
+*.csv
+AutoInfoModel.csv
