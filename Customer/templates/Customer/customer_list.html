@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'Customer/css/customer.css' %}">
+{% endblock %}
+
+{% block content %}
+    <!-- TOP BAR -->
+    <div class="d-flex align-items-center gap-2 p-2 border-bottom sticky-top bg-white">
+        
+        <!-- ADD BUTTON -->
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+            ➕ Add Customer
+        </button>
+
+        <!-- EXPORT BUTTONS -->
+        <a href="{% url 'customer_export_excel' %}?{{ query_params }}" class="btn btn-success btn-sm">
+            📥 Excel
+        </a>
+        <a href="{% url 'customer_export_pdf' %}?{{ query_params }}" class="btn btn-danger btn-sm">
+            📥 PDF
+        </a>
+        <!-- SEARCH & FILTER FORM -->
+        <form method="GET" class="d-flex gap-2" id="filterForm">
+            
+            <!-- SEARCH -->
+            
+            <input 
+            type="text" 
+            name="search" 
+            class="form-control form-control-sm"
+            style="width:200px;" 
+            placeholder="Search..."
+            value="{{ request.GET.search }}">
+            <button type="submit" class="btn btn-primary btn-sm">🔍</button>
+            <a href="{% url 'customer_list' %}" class="btn btn-secondary btn-sm">✖ Clear Filter</a>
+            
+            <!-- FILTER DROPDOWN -->
+            <div class="dropdown">
+                <button type="button" class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                    Filter
+                </button>
+                <div class="dropdown-menu p-3" style="min-width:250px;">
+                    
+                    <!-- CITY -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkCity" value="city">
+                        <label class="form-check-label" for="checkCity">City</label>
+                    </div>
+                    <div id="inputCity" style="display:none;" class="mb-2">
+                        <input type="text" name="city" class="form-control form-control-sm"
+                            placeholder="City..." value="{{ request.GET.city }}">
+                    </div>
+
+                    <!-- POSTCODE -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkPostCode" value="postcode">
+                        <label class="form-check-label" for="checkPostCode">Post Code</label>
+                    </div>
+                    <div id="inputPostCode" style="display:none;" class="mb-2">
+                        <input type="text" name="postcode" class="form-control form-control-sm" 
+                            placeholder="Post Code..." value="{{ request.GET.postcode }}">
+                    </div>
+
+                    <!-- MOBILE -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkMobile" value="mobile">
+                        <label class="form-check-label" for="checkMobile">Mobile</label>
+                    </div>
+                    <div id="inputMobile" style="display:none;" class="mb-2">
+                        <input type="text" name="mobile" class="form-control form-control-sm" 
+                            placeholder="Mobile..." value="{{ request.GET.mobile }}">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">🔍 Apply</button>
+                </div>
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- TABLE -->
+    <div class="p-2">
+        <table class="table table-hover table-bordered table-sm table-striped" style="font-size: 0.85rem;">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th class="sortable-header" data-sort="IDCustomer">
+                        ID Customer {% if current_sort == 'IDCustomer' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="Name">
+                        Name {% if current_sort == 'Name' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="City">
+                        City {% if current_sort == 'City' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="PostCode">
+                        Post Code {% if current_sort == 'PostCode' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    </th>
+                    <th class="sortable-header" data-sort="MobileNumber1">
+                        Mobile {% if current_sort == 'MobileNumber1' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                    </th>
+                </tr>
+            </thead>        
+            <tbody>
+                {% for customer in customer_list %}
+                <tr class="customer-row" 
+                    style="cursor:pointer;"
+                    onclick="toggleDetail('detail-{{ customer.id }}', this)">
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                        <i id="icon-{{ customer.id }}" class="bi bi-folder me-1"></i>
+                        {{ customer.IDCustomer }}
+                    </td>
+                    <td>{{ customer.Name }}</td>
+                    <td>{{ customer.City }}</td>
+                    <td>{{ customer.PostCode }}</td>
+                    <td>{{ customer.MobileNumber1 }}</td>
+                </tr>
+                <!-- DETAIL ROW -->
+                <tr id="detail-{{ customer.id }}" style="display:none;">
+                    <td colspan="6" class="bg-light p-3">
+                        <!-- BUTTONS -->
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-primary btn-sm"
+                                onclick="openEditModal({{ customer.id }}, '{{ customer.IDCustomer }}', '{{ customer.Name }}', '{{ customer.City }}', '{{ customer.PostCode }}', '{{ customer.MobileNumber1 }}')">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm"
+                                onclick="deleteCustomer({{ customer.id }}, '{{ customer.Name }}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                        <div class="row">                            
+                            <div class="col-md-6">
+                                <p><strong>ID Customer:</strong> {{ customer.IDCustomer }}</p>
+                                <p><strong>Name:</strong> {{ customer.Name }}</p>
+                                <p><strong>City:</strong> {{ customer.City }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Post Code:</strong> {{ customer.PostCode }}</p>
+                                <p><strong>Mobile:</strong> {{ customer.MobileNumber1 }}</p>
+                                <p><strong>ID Kredit:</strong> {{ customer.IDKredit }}</p>
+                            </div>
+                        </div>
+                        <!-- CONTRACTS -->
+                        <div class="mt-3 p-2" style="background-color:#e8f4ff; border-left: 4px solid #0d6efd; border-radius: 4px;">
+                            <h6 class="text-primary mb-2">📋 Contracts</h6>
+                            <div id="contracts-list-{{ customer.id }}">
+                                <span class="text-muted">Loading...</span>
+                            </div>
+                        </div>                    
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="d-flex justify-content-center gap-2 p-2">
+        {% if page_obj.has_previous %}
+            <a href="?{{ query_params }}&page=1" class="btn btn-sm btn-outline-secondary">⏮ First</a>
+            <a href="?{{ query_params }}&page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-secondary">⬅ Prev</a>
+        {% endif %}
+        <span class="btn btn-sm btn-light">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?{{ query_params }}&page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-secondary">Next ➡</a>
+            <a href="?{{ query_params }}&page={{ page_obj.paginator.num_pages }}" class="btn btn-sm btn-outline-secondary">Last ⏭</a>
+        {% endif %}
+    </div>
+
+    <!-- ADD MODAL -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{% url 'customer_add' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Customer</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        {% for field in form %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Customer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editId">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="editName" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">City</label>
+                        <input type="text" id="editCity" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Post Code</label>
+                        <input type="text" id="editPostCode" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mobile</label>
+                        <input type="text" id="editMobile" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="saveEdit()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE MODAL -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">🗑️ Delete Customer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this customer?</p>
+                    <p><strong id="deleteCustomerName"></strong></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{% static 'Customer/js/customer.js' %}"></script>
+{% endblock %}

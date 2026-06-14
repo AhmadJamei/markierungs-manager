@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block extra_css %}
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/calendar.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-3">📅 My Calendar</h4>
+
+    <!-- ADD LEAVE BUTTON -->
+    <button class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#addLeaveModal">
+        ➕ Request Leave
+    </button>
+
+    <!-- VIEW SWITCHER -->
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-outline-primary btn-sm" onclick="changeView('dayGridMonth')">
+            📅 Monthly
+        </button>
+        <button class="btn btn-outline-primary btn-sm" onclick="changeView('timeGridWeek')">
+            📆 Weekly
+        </button>
+        <button class="btn btn-outline-primary btn-sm" onclick="changeView('multiMonthYear')">
+            🗓️ Yearly
+        </button>
+    </div>
+
+<div id="calendar-wrapper">
+    <div id="calendar"></div>
+</div></div>
+
+<!-- ADD LEAVE MODAL -->
+<div class="modal fade" id="addLeaveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Request Leave</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Leave Type</label>
+                    <select id="leaveType" class="form-control">
+                        <option value="holiday">🌴 Urlaub</option>
+                        <option value="ill">🤒 Krank</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" id="startDate" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">End Date</label>
+                    <input type="date" id="endDate" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Reason (optional)</label>
+                    <textarea id="leaveReason" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitLeave()">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <script src="{% static 'js/calendar.js' %}"></script>
+{% endblock %}

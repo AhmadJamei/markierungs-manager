@@ -1,0 +1,13 @@
+<form method="get">
+    {% for field in view.filter_fields %}
+        <input type="text" name="{{ field }}" value="{{ request.GET.field }}">
+    {% endfor %}
+
+    <select name="sort">
+        {% for field in view.sort_fields %}
+            <option value="{{ field }}">{{ field }}</option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Apply</button>
+</form>

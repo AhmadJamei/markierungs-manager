@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">📋 Stock Transactions</h4>
+
+    <!-- TOP BAR -->
+    <div class="d-flex align-items-center gap-2 p-2 border-bottom sticky-top bg-white mb-3">
+        <a href="{% url 'material_list' %}" class="btn btn-outline-secondary btn-sm">
+            ← Back to Materials
+        </a>
+
+        <form method="GET" class="d-flex gap-2 flex-wrap">
+            <select name="material" class="form-control form-control-sm" style="width:180px;">
+                <option value="">All Materials</option>
+                {% for m in materials %}
+                <option value="{{ m.id }}" {% if selected_material == m.id|stringformat:'s' %}selected{% endif %}>
+                    {{ m.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="contract" class="form-control form-control-sm" style="width:180px;">
+                <option value="">All Contracts</option>
+                {% for c in contracts %}
+                <option value="{{ c.id }}" {% if selected_contract == c.id|stringformat:'s' %}selected{% endif %}>
+                    {{ c.IDContract }} - {{ c.Name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="type" class="form-control form-control-sm" style="width:150px;">
+                <option value="">All Types</option>
+                {% for val, label in transaction_choices %}
+                <option value="{{ val }}" {% if selected_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="date" name="from_date" class="form-control form-control-sm" 
+                style="width:140px;" value="{{ from_date }}">
+            <input type="date" name="to_date" class="form-control form-control-sm" 
+                style="width:140px;" value="{{ to_date }}">
+
+            <button type="submit" class="btn btn-primary btn-sm">🔍</button>
+            <a href="{% url 'transaction_list' %}" class="btn btn-secondary btn-sm">✖ Clear</a>
+        </form>
+    </div>
+
+    <!-- TABLE -->
+    <table class="table table-sm table-hover table-bordered table-striped" style="font-size:0.85rem;">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Material</th>
+                <th>Type</th>
+                <th>Qty (kg)</th>
+                <th>Contract</th>
+                <th>By</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transactions %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ t.date }}</td>
+                <td>{{ t.material.name }}</td>
+                <td>
+                    {% if t.transaction_type == 'in' %}
+                        <span class="badge bg-success">📥 Eingang</span>
+                    {% elif t.transaction_type == 'out' %}
+                        <span class="badge bg-warning text-dark">📤 Ausgabe</span>
+                    {% elif t.transaction_type == 'return' %}
+                        <span class="badge bg-info">↩️ Rückgabe</span>
+                    {% elif t.transaction_type == 'used' %}
+                        <span class="badge bg-secondary">✅ Verbrauch</span>
+                    {% endif %}
+                </td>
+                <td>{{ t.quantity_kg }} kg</td>
+                <td>{{ t.contract.IDContract|default:"-" }}</td>
+                <td>{{ t.created_by.username|default:"-" }}</td>
+                <td>{{ t.note|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted">No transactions found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="{% static 'Warehouse/js/warehouse.js' %}"></script>
+{% endblock %}

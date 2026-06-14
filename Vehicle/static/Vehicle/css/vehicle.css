@@ -1,0 +1,10 @@
+.table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.table-striped > tbody > tr.vehicle-row:nth-child(4n+1) > td {
+    background-color: #dddcdc;
+}

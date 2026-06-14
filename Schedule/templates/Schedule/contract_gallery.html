@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">🖼️ Contract Gallery</h4>
+
+    <!-- SEARCH -->
+    <input type="text" id="contractSearch" class="form-control form-control-sm mb-3" 
+        style="max-width:300px;" placeholder="🔍 Search contract...">
+
+    <!-- CONTRACT LIST -->
+    <div id="contractList">
+        {% for contract in contracts %}
+        <div class="contract-item mb-2">
+            <!-- CONTRACT HEADER -->
+            <div class="d-flex align-items-center gap-2 p-2" 
+                style="background:#f8f9fa; border-radius:4px; cursor:pointer;"
+                onclick="toggleGallery('gallery-{{ contract.id }}', this)">
+                <i id="icon-{{ contract.id }}" class="bi bi-folder text-warning" style="font-size:1.2rem;"></i>
+                <strong>{{ contract.IDContract }}</strong>
+                <span class="text-muted">{{ contract.Name }}</span>
+                <span class="badge bg-primary ms-auto">{{ contract.image_count }} 📷</span>
+            </div>
+
+            <!-- CONTRACT GALLERY -->
+            <div id="gallery-{{ contract.id }}" style="display:none;" class="p-2 mt-1"
+                style="background:#e8f4ff; border-left:3px solid #0d6efd; border-radius:4px;">
+                
+                {% for report in contract.workdays.all %}
+                    {% for r in report.reports.all %}
+                        {% if r.images.all %}
+                        <div class="mb-3 p-2" style="background:white; border-radius:4px;">
+                            <!-- worker info -->
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                {% if r.worker.photo %}
+                                    <img src="{{ r.worker.photo.url }}" 
+                                        style="width:24px; height:24px; border-radius:50%; object-fit:cover;">
+                                {% else %}
+                                    <span>👷</span>
+                                {% endif %}
+                                <strong style="font-size:12px;">{{ r.worker.get_full_name|default:r.worker.username }}</strong>
+                                <small class="text-muted">📅 {{ r.workday.date }}</small>
+                                {% if r.status == 'approved' %}
+                                    <span class="badge bg-success ms-auto">✅</span>
+                                {% elif r.status == 'rejected' %}
+                                    <span class="badge bg-danger ms-auto">❌</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark ms-auto">⏳</span>
+                                {% endif %}
+                            </div>
+                            <!-- متن گزارش -->
+                            {% if r.text %}
+                            <div class="mb-2 p-1" style="background:#fff3cd; border-radius:4px; font-size:12px;">
+                                📝 {{ r.text }}
+                            </div>
+                            {% endif %}
+                            {% if r.engineer_note %}
+                            <div class="mb-2 p-1" style="background:#d4edda; border-radius:4px; font-size:12px;">
+                                👷‍♂️ <strong>Engineer Note:</strong> {{ r.engineer_note }}
+                            </div>
+                            {% endif %}
+                            <!-- عکس‌ها -->
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for img in r.images.all %}
+                                <img src="{{ img.image.url }}" 
+                                    style="width:80px; height:80px; object-fit:cover; border-radius:4px; cursor:pointer;"
+                                    onclick="showFullImage('{{ img.image.url }}')">
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-muted">No contracts with photos</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- FULL IMAGE MODAL -->
+<div class="modal fade" id="fullImageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="fullImage" src="" style="max-width:100%; max-height:80vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'Schedule/js/gallery.js' %}"></script>
+
+{% endblock %}

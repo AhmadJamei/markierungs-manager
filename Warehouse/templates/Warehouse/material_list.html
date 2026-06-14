@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">📦 Warehouse - Materials</h4>
+
+    <!-- TOP BAR -->
+    <div class="d-flex align-items-center gap-2 p-2 border-bottom sticky-top bg-white mb-3">
+        <button class="btn btn-success btn-sm" onclick="openAddModal()">
+            ➕ Add Material
+        </button>
+
+        <form method="GET" class="d-flex gap-2">
+            <input type="text" name="search" class="form-control form-control-sm"
+                style="width:200px;" placeholder="Search..." value="{{ request.GET.search }}">
+            <select name="type" class="form-control form-control-sm" style="width:150px;">
+                <option value="">All Types</option>
+                {% for mt in material_types %}
+                <option value="{{ mt.id }}" {% if selected_type == mt.id|stringformat:'s' %}selected{% endif %}>
+                    {{ mt.get_category_display }} - {{ mt.name }}
+                </option>
+                {% endfor %}
+            </select>            
+
+            <button type="submit" class="btn btn-primary btn-sm">🔍</button>
+            <a href="{% url 'material_list' %}" class="btn btn-secondary btn-sm">✖ Clear</a>
+        </form>
+
+        <a href="{% url 'transaction_list' %}" class="btn btn-outline-primary btn-sm ms-auto">
+            📋 Transactions
+        </a>
+    </div>
+
+    <!-- LOW STOCK ALERT -->
+    {% if low_stock %}
+    <div class="alert alert-warning mb-3">
+        ⚠️ Low stock: 
+        {% for m in low_stock %}
+            <strong>{{ m.name }}</strong> ({{ m.stock_kg }} kg){% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- TABLE -->
+    <table class="table table-sm table-hover table-bordered table-striped" style="font-size:0.85rem;">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Color</th>
+                <th>Stock (kg)</th>
+                <th>Min Stock (kg)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for material in materials %}
+            <tr class="material-row" style="cursor:pointer;"
+                onclick="toggleDetail('detail-{{ material.id }}', this)">
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    <i id="icon-{{ material.id }}" class="bi bi-folder me-1"></i>
+                    {{ material.get_type_display }}
+                </td>
+                <td>{{ material.name }}</td>
+                <td>{{ material.color|default:"-" }}</td>
+                <td><strong>{{ material.stock_kg }} kg</strong></td>
+                <td>{{ material.min_stock_kg }} kg</td>
+                <td>
+                    {% if material.stock_kg <= material.min_stock_kg %}
+                        <span class="badge bg-danger">⚠️ Low</span>
+                    {% elif material.stock_kg <= material.min_stock_kg|add:10 %}
+                        <span class="badge bg-warning text-dark">⚡ Warning</span>
+                    {% else %}
+                        <span class="badge bg-success">✅ OK</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <!-- DETAIL ROW -->
+            <tr id="detail-{{ material.id }}" style="display:none;">
+                <td colspan="7" class="bg-light p-3">
+                    <!-- BUTTONS -->
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn btn-primary btn-sm"
+                            onclick="openEditModal({{ material.id }}, '{{ material.type }}', '{{ material.name }}', '{{ material.color }}', {{ material.min_stock_kg }}, '{{ material.description|escapejs }}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-success btn-sm"
+                            onclick="openTransactionModal({{ material.id }}, '{{ material.name }}', {{ material.stock_kg }})">
+                            📦 Transaction
+                        </button>
+                        <button class="btn btn-danger btn-sm"
+                            onclick="deleteMaterial({{ material.id }}, '{{ material.name }}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                    <!-- DETAILS -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p><strong>Type:</strong> {{ material.get_type_display }}</p>
+                            <p><strong>Name:</strong> {{ material.name }}</p>
+                            <p><strong>Color:</strong> {{ material.color|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>Stock:</strong> {{ material.stock_kg }} kg</p>
+                            <p><strong>Min Stock:</strong> {{ material.min_stock_kg }} kg</p>
+                        </div>
+                        <div class="col-md-4">
+                            {% if material.description %}
+                            <p><strong>Description:</strong> {{ material.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!-- RECENT TRANSACTIONS -->
+                    <div class="mt-2 p-2" style="background:#e8f4ff; border-left:3px solid #0d6efd; border-radius:4px;">
+                        <h6 class="text-primary">📋 Recent Transactions</h6>
+                        <table class="table table-sm">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Qty (kg)</th>
+                                    <th>Contract</th>
+                                    <th>Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in material.transactions.all|slice:":5" %}
+                                <tr>
+                                    <td>{{ t.date }}</td>
+                                    <td>{{ t.get_transaction_type_display }}</td>
+                                    <td>{{ t.quantity_kg }}</td>
+                                    <td>{{ t.contract.IDContract|default:"-" }}</td>
+                                    <td>{{ t.note|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="text-muted">No transactions</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted">No materials found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">➕ Add Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+                    <select id="addType" class="form-control">
+                        {% for mt in material_types %}
+                        <option value="{{ mt.id }}">{{ mt.get_category_display }} - {{ mt.name }}</option>
+                        {% endfor %}
+                    </select>                
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="addName" class="form-control" placeholder="e.g. Farbe Weiß">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Color (optional)</label>
+                    <input type="text" id="addColor" class="form-control" placeholder="e.g. Weiß">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Initial Stock (kg)</label>
+                    <input type="number" id="addStock" class="form-control" value="0" step="0.1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Min Stock (kg)</label>
+                    <input type="number" id="addMinStock" class="form-control" value="0" step="0.1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea id="addDescription" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="saveMaterial()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ Edit Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+                    <select id="editType" class="form-control">
+                        {% for mt in material_types %}
+                        <option value="{{ mt.id }}">{{ mt.get_category_display }} - {{ mt.name }}</option>
+                        {% endfor %}
+                    </select>                
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" id="editName" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Color</label>
+                    <input type="text" id="editColor" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Min Stock (kg)</label>
+                    <input type="number" id="editMinStock" class="form-control" step="0.1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea id="editDescription" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="updateMaterial()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TRANSACTION MODAL -->
+<div class="modal fade" id="transactionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📦 Stock Transaction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="txMaterialId">
+                <div class="mb-2 p-2 bg-light rounded">
+                    <strong id="txMaterialName"></strong> — 
+                    Current Stock: <strong id="txCurrentStock"></strong> kg
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Transaction Type</label>
+                    <select id="txType" class="form-control">
+                        <option value="in">📥 Eingang (ورود)</option>
+                        <option value="out">📤 Ausgabe (تحویل به پروژه)</option>
+                        <option value="return">↩️ Rückgabe (برگشت)</option>
+                        <option value="used">✅ Verbrauch (مصرف واقعی)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Quantity (kg)</label>
+                    <input type="number" id="txQuantity" class="form-control" step="0.1" min="0.1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Contract (optional)</label>
+                    <select id="txContract" class="form-control">
+                        <option value="">-- No Contract --</option>
+                        {% for contract in contracts %}
+                        <option value="{{ contract.id }}">{{ contract.IDContract }} - {{ contract.Name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Date</label>
+                    <input type="date" id="txDate" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Note</label>
+                    <textarea id="txNote" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="saveTransaction()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">🗑️ Delete Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete:</p>
+                <p><strong id="deleteMatName"></strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% load static %}
+<script src="{% static 'Warehouse/js/warehouse.js' %}"></script>
+{% endblock %}

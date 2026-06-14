@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">👷 Worker Report</h4>
+
+    <!-- FILTERS -->
+    <form method="GET" class="row g-2 mb-4">
+        <div class="col-md-2">
+            <label class="form-label">From Date</label>
+            <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">To Date</label>
+            <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Worker</label>
+            <select name="worker_id" class="form-control form-control-sm">
+                <option value="">All Workers</option>
+                {% for worker in workers %}
+                <option value="{{ worker.id }}" {% if selected_worker == worker.id|stringformat:'s' %}selected{% endif %}>
+                    {{ worker.get_full_name|default:worker.username }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Contract</label>
+            <select name="contract_id" class="form-control form-control-sm">
+                <option value="">All Contracts</option>
+                {% for contract in contracts %}
+                <option value="{{ contract.id }}" {% if selected_contract == contract.id|stringformat:'s' %}selected{% endif %}>
+                    {{ contract.IDContract }} - {{ contract.Name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-primary btn-sm">🔍 Filter</button>
+            <a href="{% url 'worker_report' %}" class="btn btn-secondary btn-sm">✖ Clear</a>
+        </div>
+    </form>
+
+    <!-- SUMMARY CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="text-primary">👷 Total Workers</h6>
+                    <h2>{{ report_data|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">✅ Total Done Days</h6>
+                    <h2>{{ total_done }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="text-warning">📅 Total Planned Days</h6>
+                    <h2>{{ total_planned }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-danger">❌ Total Cancelled Days</h6>
+                    <h2>{{ total_cancelled }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPORT TABLE -->
+    <div class="card">
+        <div class="card-header">📋 Worker Details</div>
+        <div class="card-body">
+            <table class="table table-sm table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Worker</th>
+                        <th>Total Days</th>
+                        <th>✅ Done</th>
+                        <th>📅 Planned</th>
+                        <th>❌ Cancelled</th>
+                        <th>Contracts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in report_data %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            {% if r.worker.photo %}
+                                <img src="{{ r.worker.photo.url }}" 
+                                    style="width:24px; height:24px; border-radius:50%; object-fit:cover;">
+                            {% endif %}
+                            {{ r.worker.get_full_name|default:r.worker.username }}
+                        </td>
+                        <td><strong>{{ r.total_days }}</strong></td>
+                        <td><span class="badge bg-success">{{ r.done_days }}</span></td>
+                        <td><span class="badge bg-primary">{{ r.planned_days }}</span></td>
+                        <td><span class="badge bg-danger">{{ r.cancelled_days }}</span></td>
+                        <td>
+                            {% for contract in r.contracts %}
+                                <span class="badge bg-secondary me-1">{{ contract.contract__IDContract }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- EXPORT BUTTONS -->
+    <div class="d-flex gap-2 mt-3">
+        <a href="{% url 'worker_report_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+            📥 Export Excel
+        </a>
+        <a href="{% url 'worker_report_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger btn-sm">
+            📥 Export PDF
+        </a>
+    </div>
+</div>
+{% endblock %}

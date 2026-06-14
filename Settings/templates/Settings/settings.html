@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-3" id="page-content">
+    <h4 class="mb-4">⚙️ Settings</h4>
+
+    <div class="row g-4">
+
+        <!-- COMPANY SETTINGS -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    🏢 Company Settings
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Company Name</label>
+                        <input type="text" id="companyName" class="form-control" 
+                            value="{{ company.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Logo</label>
+                        {% if company.logo %}
+                            <div class="mb-2">
+                                <img src="{{ company.logo.url }}" 
+                                    style="height:60px; object-fit:contain;">
+                            </div>
+                        {% endif %}
+                        <input type="file" id="companyLogo" class="form-control" accept="image/*">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Primary Color</label>
+                            <input type="color" id="primaryColor" class="form-control form-control-color"
+                                value="{{ company.primary_color }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Secondary Color</label>
+                            <input type="color" id="secondaryColor" class="form-control form-control-color"
+                                value="{{ company.secondary_color }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea id="companyAddress" class="form-control" rows="2">{{ company.address }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" id="companyPhone" class="form-control" 
+                            value="{{ company.phone }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="companyEmail" class="form-control" 
+                            value="{{ company.email }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Website</label>
+                        <input type="url" id="companyWebsite" class="form-control" 
+                            value="{{ company.website }}">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveCompany()">💾 Save</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+
+            <!-- MATERIAL TYPES -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    📦 Material Types
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Category</th>
+                                <th>Name</th>
+                                <th>Color</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mt in material_types %}
+                            <tr>
+                                <td>{{ mt.get_category_display }}</td>
+                                <td>{{ mt.name }}</td>
+                                <td>{{ mt.color|default:"-" }}</td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm"
+                                        onclick="deleteMaterialType({{ mt.id }}, '{{ mt.name }}')">
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-muted text-center">No material types</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <!-- ADD FORM -->
+                    <div class="d-flex gap-2 mt-2">
+                        <select id="mtCategory" class="form-control form-control-sm">
+                            {% for val, label in category_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="text" id="mtName" class="form-control form-control-sm" 
+                            placeholder="Name e.g. Weiß">
+                        <input type="text" id="mtColor" class="form-control form-control-sm" 
+                            placeholder="Color">
+                        <button class="btn btn-success btn-sm" onclick="addMaterialType()">➕</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTRACT TYPES -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    📋 Contract Types
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ct in contract_types %}
+                            <tr>
+                                <td>{{ ct.code }}</td>
+                                <td>{{ ct.name }}</td>
+                                <td>
+                                    <button class="btn btn-danger btn-sm"
+                                        onclick="deleteContractType({{ ct.id }}, '{{ ct.name }}')">
+                                        🗑️
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-muted text-center">No contract types</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <!-- ADD FORM -->
+                    <div class="d-flex gap-2 mt-2">
+                        <input type="text" id="ctCode" class="form-control form-control-sm" 
+                            placeholder="Code e.g. A" style="max-width:80px;">
+                        <input type="text" id="ctName" class="form-control form-control-sm" 
+                            placeholder="Name e.g. Autobahn">
+                        <button class="btn btn-success btn-sm" onclick="addContractType()">➕</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'Settings/js/settings.js' %}"></script>
+{% endblock %}

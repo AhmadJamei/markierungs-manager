@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load schedule_tags %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-3">📅 My Schedule</h4>
+
+    <!-- WEEK NAVIGATION -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2 mx-auto">
+            <a href="?week={{ prev_week }}" class="btn btn-outline-secondary btn-sm">⬅ Prev</a>
+            <span style="font-size: 1.8rem; font-weight: bold; color: #0d6efd;">
+                Week {{ week_number }}
+            </span>
+            <a href="?week={{ next_week }}" class="btn btn-outline-secondary btn-sm">Next ➡</a>
+            <a href="?" class="btn btn-outline-primary btn-sm">This Week</a>
+        </div>
+    </div>
+
+    <!-- SCHEDULE TABLE -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm">
+            <thead class="table-dark">
+                <tr>
+                    {% for day in week_days %}
+                    <th class="text-center" style="min-width:150px;">
+                        {{ day|date:"D" }}<br>
+                        <small>{{ day|date:"d.m.Y" }}</small>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for day in week_days %}
+                    <td class="p-1 align-top">
+                        {% for workday in schedule_data|get_item:day %}
+                            <div class="p-2 mb-1" style="
+                                background: {% if workday.status == 'done' %}#d4edda{% elif workday.status == 'planned' %}#e8f4ff{% else %}#f8d7da{% endif %};
+                                border-radius:4px;
+                                border-left:3px solid {% if workday.status == 'done' %}#28a745{% elif workday.status == 'planned' %}#0d6efd{% else %}#dc3545{% endif %};">
+
+                                <!-- قرارداد -->
+                                <div class="mb-1">
+                                    <strong style="font-size:12px;">{{ workday.contract.IDContract }}</strong>
+                                    {% if workday.shift == 'night' %}
+                                        <span class="badge bg-dark" style="font-size:9px;">🌙 Night</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark" style="font-size:9px;">🌞 Day</span>
+                                    {% endif %}
+                                    <small class="text-muted d-block" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;"
+                                        title="{{ workday.contract.Name }}">
+                                        {{ workday.contract.Name }}
+                                    </small>
+                                    <small class="text-danger d-block" style="font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:130px;"
+                                        title="{{ workday.contract.Address }}">
+                                        📍 {{ workday.contract.Address }}
+                                    </small>
+                                </div>
+
+                                <!-- وضعیت -->
+                                <div class="mb-1">
+                                    {% if workday.status == 'done' %}
+                                        <span class="badge bg-success">✅ Done</span>
+                                    {% elif workday.status == 'planned' %}
+                                        <span class="badge bg-primary">📅 Planned</span>
+                                    {% elif workday.status == 'cancelled_weather' %}
+                                        <span class="badge bg-secondary">🌧️ Cancelled - Weather</span>
+                                    {% elif workday.status == 'cancelled_client' %}
+                                        <span class="badge bg-danger">❌ Cancelled - Client</span>
+                                    {% elif workday.status == 'cancelled_contractor' %}
+                                        <span class="badge bg-warning text-dark">❌ Cancelled - Contractor</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- دکمه گزارش -->
+                                <div class="mt-1">
+                                    <button class="btn btn-outline-primary btn-sm w-100" style="font-size:10px;"
+                                        onclick="openReportModal({{ workday.id }})">
+                                        📸 Report
+                                    </button>
+                                </div>
+                                <!-- یادداشت مهندس -->
+                                {% for note in workday.worker_notes.all %}
+                                    {% if note.worker == request.user and note.note %}
+                                        <div class="mt-1 p-1" style="background:#fff3cd; border-radius:4px; border-left:3px solid #ffc107; font-size:11px;">
+                                            📋 {{ note.note }}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+
+                                <!-- آب و هوا -->
+                                {% if workday.contract.City %}
+                                <div class="weather-widget mt-1"
+                                    data-city="{{ workday.contract.City }}"
+                                    data-date="{{ workday.date|date:'Y-m-d' }}"
+                                    data-shift="{{ workday.shift }}"
+                                    id="weather-{{ workday.id }}">
+                                    <small class="text-muted">⏳ Loading...</small>
+                                </div>
+                                {% endif %}
+
+                            </div>
+                        {% empty %}
+                            <span class="text-muted">-</span>
+                        {% endfor %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📸 Work Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="reportWorkdayId">
+                <input type="hidden" id="reportId">
+                
+                <!-- وضعیت گزارش -->
+                <div id="reportStatus" class="mb-2"></div>
+                
+                <!-- متن گزارش -->
+                <div class="mb-3">
+                    <label class="form-label">📝 Report Text</label>
+                    <textarea id="reportText" class="form-control" rows="3" 
+                        placeholder="Describe the work done..."></textarea>
+                </div>
+
+                <!-- تصاویر موجود -->
+                <div class="mb-3">
+                    <label class="form-label">📷 Uploaded Images</label>
+                    <div id="existingImages" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- آپلود تصویر جدید -->
+                <div class="mb-3">
+                    <label class="form-label">➕ Add Images</label>
+                    <div class="d-flex gap-2">
+                        <label class="btn btn-outline-primary btn-sm">
+                            📷 Camera
+                            <input type="file" id="reportCamera" accept="image/*" capture="environment" style="display:none;">
+                        </label>
+                        <label class="btn btn-outline-secondary btn-sm">
+                            🖼️ Gallery
+                            <input type="file" id="reportImages" multiple accept="image/*" style="display:none;">
+                        </label>
+                    </div>                
+                </div>
+
+                <!-- یادداشت مهندس -->
+                <div id="engineerNoteDiv" style="display:none;" 
+                    class="p-2 mt-2" style="background:#fff3cd; border-radius:4px;">
+                    <strong>Engineer Note:</strong>
+                    <p id="engineerNoteText"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveReport()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{% static 'Schedule/js/schedule.js' %}"></script>
+<script src="{% static 'Schedule/js/my_schedule.js' %}"></script>
+{% endblock %}

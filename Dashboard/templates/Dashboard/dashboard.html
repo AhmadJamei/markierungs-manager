@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load static %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">📊 Dashboard</h4>
+
+    <!-- VEHICLE ALERTS -->
+    {% if vehicle_alerts %}
+    <div class="mb-4">
+        <h6 class="text-danger">⚠️ Vehicle Expiry Alerts</h6>
+        {% for alert in vehicle_alerts %}
+        <div class="alert {% if alert.urgent %}alert-danger{% else %}alert-warning{% endif %} py-2 mb-1">
+            <strong>{{ alert.type }}</strong> —
+            {{ alert.vehicle.RegisterNumber }} ({{ alert.vehicle.get_Model_display }}) —
+            Ablauf: <strong>{{ alert.expiry }}</strong> —
+            noch <strong>{{ alert.days_left }} Tage</strong>
+            {% if alert.vehicle.responsible %}
+                — {{ alert.vehicle.responsible.get_full_name|default:alert.vehicle.responsible.username }}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- STATS CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">👥 Total Customers</h6>
+                    <h2 class="card-text">{{ total_customers }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-success">📋 Total Contracts</h6>
+                    <h2 class="card-text">{{ total_contracts }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-warning">💰 Total Price</h6>
+                    <h2 class="card-text">€ {{ total_price|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-info">🚛 Total Vehicles</h6>
+                    <h2 class="card-text">{{ total_vehicles }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 1: Charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">📊 Contracts by Type</div>
+                <div class="card-body">
+                    <canvas id="typeChart" style="max-height:250px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">💰 Total Price by Type</div>
+                <div class="card-body">
+                    <canvas id="priceChart" style="max-height:250px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header">🚛 Vehicles by Model</div>
+                <div class="card-body">
+                    <canvas id="vehicleChart" style="max-height:250px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 2: Top Customers + Latest Contracts -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">🏆 Top 5 Customers by Contract Value</div>
+                <div class="card-body">
+                    <canvas id="customerChart" style="max-height:250px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">🕒 Latest Contracts</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contract in latest_contracts %}
+                            <tr style="cursor:pointer;"
+                                onclick="window.location.href='/contract/list/?search={{ contract.IDContract }}'">
+                                <td>{{ contract.IDContract }}</td>
+                                <td>{{ contract.Name }}</td>
+                                <td>{{ contract.get_Type_display }}</td>
+                                <td>€ {{ contract.Price|intcomma }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Customers Table -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">🏆 Top Customers Detail</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Customer</th>
+                                <th>Contracts</th>
+                                <th>Total Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_customer_data %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.count }}</td>
+                                <td>€ {{ item.total|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const TYPE_LABELS = [{% for item in type_data %}'{{ item.type }}',{% endfor %}];
+    const TYPE_COUNTS = [{% for item in type_data %}{{ item.count }},{% endfor %}];
+    const PRICE_LABELS = [{% for item in price_type_data %}'{{ item.type }}',{% endfor %}];
+    const PRICE_DATA = [{% for item in price_type_data %}{{ item.total }},{% endfor %}];
+    const VEHICLE_LABELS = [{% for item in vehicle_model_data %}'{{ item.model }}',{% endfor %}];
+    const VEHICLE_DATA = [{% for item in vehicle_model_data %}{{ item.count }},{% endfor %}];
+    const CUSTOMER_LABELS = [{% for item in top_customer_data %}'{{ item.name }}',{% endfor %}];
+    const CUSTOMER_DATA = [{% for item in top_customer_data %}{{ item.total }},{% endfor %}];
+</script>
+<script src="{% static 'Dashboard/js/dashboard.js' %}"></script>
+
+{% endblock %}

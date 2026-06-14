@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-3">
+
+    <!-- HEADER -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <a href="{% url 'schedule' %}" class="btn btn-outline-secondary btn-sm">← Back</a>
+        <h4 class="mb-0">📋 Workday Detail</h4>
+    </div>
+
+    <div class="row g-3">
+
+        <!-- CONTRACT INFO -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    📋 Contract Info
+                </div>
+                <div class="card-body">
+                    <p><strong>ID:</strong> {{ workday.contract.IDContract }}</p>
+                    <p><strong>Name:</strong> {{ workday.contract.Name }}</p>
+                    <p><strong>Address:</strong> {{ workday.contract.Address }}</p>
+                    <p><strong>Date:</strong> {{ workday.date }}</p>
+                    <p>
+                        <strong>Shift:</strong>
+                        {% if workday.shift == 'night' %}
+                            <span class="badge bg-dark">🌙 Night</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">🌞 Day</span>
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>Status:</strong>
+                        {% if workday.status == 'done' %}
+                            <span class="badge bg-success">✅ Done</span>
+                        {% elif workday.status == 'planned' %}
+                            <span class="badge bg-primary">📅 Planned</span>
+                        {% elif workday.status == 'cancelled_weather' %}
+                            <span class="badge bg-secondary">🌧️ Cancelled - Weather</span>
+                        {% elif workday.status == 'cancelled_client' %}
+                            <span class="badge bg-danger">❌ Cancelled - Client</span>
+                        {% elif workday.status == 'cancelled_contractor' %}
+                            <span class="badge bg-warning text-dark">❌ Cancelled - Contractor</span>
+                        {% endif %}
+                    </p>
+                    {% if workday.cancel_reason %}
+                    <p><strong>Cancel Reason:</strong> {{ workday.cancel_reason }}</p>
+                    {% endif %}
+
+                    <!-- آب و هوا -->
+                    {% if workday.contract.City %}
+                    <div class="weather-widget mt-2"
+                        data-city="{{ workday.contract.City }}"
+                        data-date="{{ workday.date|date:'Y-m-d' }}"
+                        data-shift="{{ workday.shift }}"
+                        id="weather-{{ workday.id }}">
+                        <small class="text-muted">⏳ Loading weather...</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- WORKERS -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    👷 Workers
+                </div>
+                <div class="card-body">
+                    {% for worker in workday.workers.all %}
+                    <div class="d-flex align-items-center gap-2 mb-2 p-2"
+                        style="background:#f8f9fa; border-radius:4px;">
+                        {% if worker.photo %}
+                            <img src="{{ worker.photo.url }}"
+                                style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+                        {% else %}
+                            <span style="font-size:1.5rem;">👷</span>
+                        {% endif %}
+                        <div>
+                            <strong>{{ worker.get_full_name|default:worker.username }}</strong>
+                            {% for note in workday.worker_notes.all %}
+                                {% if note.worker == worker and note.note %}
+                                <div class="mt-1 p-1" style="background:#fff3cd; border-radius:4px; font-size:12px;">
+                                    📋 {{ note.note }}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No workers assigned</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- VEHICLES -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-dark">
+                    🚗 Vehicles
+                </div>
+                <div class="card-body">
+                    {% for vehicle in workday.vehicles.all %}
+                    <div class="d-flex align-items-center gap-2 mb-2 p-2"
+                        style="background:#f8f9fa; border-radius:4px;">
+                        {% if vehicle.Image %}
+                            <img src="{{ vehicle.Image.url }}"
+                                style="width:40px; height:40px; object-fit:cover; border-radius:4px;">
+                        {% else %}
+                            <span style="font-size:1.5rem;">🚗</span>
+                        {% endif %}
+                        <div>
+                            <strong>{{ vehicle.RegisterNumber }}</strong>
+                            <small class="text-muted d-block">{{ vehicle.get_Model_display }}</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No vehicles assigned</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- MATERIALS -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    📦 Materials
+                </div>
+                <div class="card-body">
+                    {% for cm in workday.contract.materials.all %}
+                    <div class="d-flex align-items-center justify-content-between mb-2 p-2"
+                        style="background:#f8f9fa; border-radius:4px;">
+                        <div>
+                            <strong>{{ cm.material.get_type_display }} - {{ cm.material.name }}</strong>
+                            <small class="text-muted d-block">Required: {{ cm.required_kg }} kg</small>
+                        </div>
+                        <div>
+                            {% if cm.stencil == 'available' %}
+                                <span class="badge bg-success">✅ Schablone</span>
+                            {% elif cm.stencil == 'ordered' %}
+                                <span class="badge bg-warning text-dark">📦 Ordered</span>
+                            {% else %}
+                                <span class="badge bg-secondary">❌ No Schablone</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No materials assigned</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- REPORTS -->
+        {% if workday.reports.all %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    📸 Work Reports
+                </div>
+                <div class="card-body">
+                    {% for report in workday.reports.all %}
+                    <div class="mb-3 p-2" style="background:#f8f9fa; border-radius:4px;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            {% if report.worker.photo %}
+                                <img src="{{ report.worker.photo.url }}"
+                                    style="width:24px; height:24px; border-radius:50%; object-fit:cover;">
+                            {% else %}
+                                <span>👷</span>
+                            {% endif %}
+                            <strong>{{ report.worker.get_full_name|default:report.worker.username }}</strong>
+                            <small class="text-muted">{{ report.created_at|date:"d.m.Y H:i" }}</small>
+                            {% if report.status == 'approved' %}
+                                <span class="badge bg-success ms-auto">✅ Approved</span>
+                            {% elif report.status == 'rejected' %}
+                                <span class="badge bg-danger ms-auto">❌ Rejected</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark ms-auto">⏳ Pending</span>
+                            {% endif %}
+                        </div>
+                        {% if report.text %}
+                        <div class="mb-2 p-2" style="background:#fff3cd; border-radius:4px;">
+                            📝 {{ report.text }}
+                        </div>
+                        {% endif %}
+                        {% if report.engineer_note %}
+                        <div class="mb-2 p-2" style="background:#d4edda; border-radius:4px;">
+                            👷‍♂️ <strong>Engineer:</strong> {{ report.engineer_note }}
+                        </div>
+                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for img in report.images.all %}
+                            <img src="{{ img.image.url }}"
+                                style="width:80px; height:80px; object-fit:cover; border-radius:4px; cursor:pointer;"
+                                onclick="showFullImage('{{ img.image.url }}')">
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- FULL IMAGE MODAL -->
+<div class="modal fade" id="fullImageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="fullImage" src="" style="max-width:100%; max-height:80vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showFullImage(url) {
+    document.getElementById('fullImage').src = url;
+    new bootstrap.Modal(document.getElementById('fullImageModal')).show();
+}
+</script>
+
+<script src="{% static 'Schedule/js/schedule.js' %}"></script>
+{% endblock %}

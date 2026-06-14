@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-4">📊 Leave Report</h4>
+
+    <!-- YEAR FILTER -->
+    <form method="GET" class="d-flex gap-2 mb-4">
+        <select name="year" class="form-control form-control-sm" style="width:120px;">
+            {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">🔍 Filter</button>
+    </form>
+
+    <div class="d-flex gap-2 mb-4">
+        <a href="{% url 'leave_report_excel' %}?year={{ year }}" class="btn btn-success btn-sm">
+            📥 Export Excel
+        </a>
+        <a href="{% url 'leave_report_pdf' %}?year={{ year }}" class="btn btn-danger btn-sm">
+            📥 Export PDF
+        </a>
+    </div>
+    
+    <!-- SUMMARY CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="text-primary">👥 Total Employees</h6>
+                    <h2>{{ report_data|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-success">🌴 Total Holiday Days</h6>
+                    <h2>{{ total_holiday_days }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="text-danger">🤒 Total Ill Days </h6>
+                    <h2>{{ total_ill_days }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPORT TABLE -->
+    <div class="card">
+        <div class="card-header">📋 Employee Leave Report {{ year }}</div>
+        <div class="card-body">
+            <table class="table table-sm table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Employee</th>
+                        <th>🌴 Holiday Days</th>
+                        <th>🤒 Ill Days</th>
+                        <th>Total Days</th>
+                        <th>Remaining Holiday</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in report_data %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ r.user.get_full_name|default:r.user.username }}</td>
+                        <td>{{ r.holiday_days }}</td>
+                        <td>{{ r.ill_days }}</td>
+                        <td><strong>{{ r.total_days }}</strong></td>
+                        <td>
+                            {% if r.remaining < 0 %}
+                                <span class="badge bg-danger">{{ r.remaining }} days</span>
+                            {% elif r.remaining <= 5 %}
+                                <span class="badge bg-warning text-dark">{{ r.remaining }} days</span>
+                            {% else %}
+                                <span class="badge bg-success">{{ r.remaining }} days</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if r.holiday_days > 30 %}
+                                <span class="badge bg-danger">Over limit!</span>
+                            {% elif r.holiday_days > 25 %}
+                                <span class="badge bg-warning text-dark">Almost full</span>
+                            {% else %}
+                                <span class="badge bg-success">OK</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

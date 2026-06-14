@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'Vehicle/css/vehicle.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="page-content">
+
+    <!-- ALERTS -->
+    {% if alerts %}
+    <div class="p-2">
+        {% for alert in alerts %}
+        <div class="alert {% if alert.urgent %}alert-danger{% else %}alert-warning{% endif %} py-2 mb-1">
+            <strong>⚠️ {{ alert.type }}</strong> —
+            {{ alert.vehicle.RegisterNumber }} ({{ alert.vehicle.get_Model_display }}) —
+            Ablauf: <strong>{{ alert.expiry }}</strong> —
+            noch <strong>{{ alert.days_left }} Tage</strong>
+            {% if alert.vehicle.responsible %}
+                — Verantwortlicher: {{ alert.vehicle.responsible.get_full_name|default:alert.vehicle.responsible.username }}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <!-- TOP BAR -->
+    <div class="d-flex align-items-center gap-2 p-2 border-bottom sticky-top bg-white">
+
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+            ➕ Add Vehicle
+        </button>
+
+        <a href="{% url 'vehicle_export_excel' %}?{{ query_params }}" class="btn btn-success btn-sm">📥 Excel</a>
+        <a href="{% url 'vehicle_export_pdf' %}?{{ query_params }}" class="btn btn-danger btn-sm">📥 PDF</a>
+
+        <form method="GET" class="d-flex gap-2 align-items-center" id="filterForm">
+            <input type="text" name="search" class="form-control form-control-sm" style="width:200px;"
+                   placeholder="Search..." value="{{ request.GET.search }}">
+            <button type="submit" class="btn btn-primary btn-sm">🔍</button>
+            <a href="{% url 'vehicle_list' %}" class="btn btn-secondary btn-sm">✖ Clear</a>
+
+            <!-- FILTER DROPDOWN -->
+            <div class="dropdown">
+                <button type="button" class="btn btn-primary btn-sm dropdown-toggle"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    Filter
+                </button>
+                <div class="dropdown-menu p-3" style="min-width:250px; max-height:400px; overflow-y:auto;">
+
+                    <!-- MODEL -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkModel">
+                        <label class="form-check-label" for="checkModel">Modell</label>
+                    </div>
+                    <div id="inputModel" style="display:none;" class="mb-2">
+                        <select name="model" class="form-control form-control-sm">
+                            <option value="">Alle</option>
+                            {% for val, label in model_choices %}
+                            <option value="{{ val }}" {% if request.GET.model == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- KIND -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkKind">
+                        <label class="form-check-label" for="checkKind">Art</label>
+                    </div>
+                    <div id="inputKind" style="display:none;" class="mb-2">
+                        <select name="kind" class="form-control form-control-sm">
+                            <option value="">Alle</option>
+                            {% for val, label in kind_choices %}
+                            <option value="{{ val }}" {% if request.GET.kind == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- FUEL -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkFuel">
+                        <label class="form-check-label" for="checkFuel">Kraftstoff</label>
+                    </div>
+                    <div id="inputFuel" style="display:none;" class="mb-2">
+                        <select name="fuel" class="form-control form-control-sm">
+                            <option value="">Alle</option>
+                            {% for val, label in fuel_choices %}
+                            <option value="{{ val }}" {% if request.GET.fuel == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- RESPONSIBLE -->
+                    <div class="form-check">
+                        <input class="form-check-input filter-check" type="checkbox" id="checkResponsible">
+                        <label class="form-check-label" for="checkResponsible">Verantwortlicher</label>
+                    </div>
+                    <div id="inputResponsible" style="display:none;" class="mb-2">
+                        <select name="responsible" class="form-control form-control-sm">
+                            <option value="">Alle</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if request.GET.responsible == user.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user.get_full_name|default:user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">🔍 Apply</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- TABLE -->
+    <div class="p-2">
+        <table class="table table-hover table-bordered table-sm table-striped" style="font-size:0.85rem;">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th class="sortable-header" data-sort="RegisterNumber">Kennzeichen {% if current_sort == 'RegisterNumber' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th class="sortable-header" data-sort="Model">Modell {% if current_sort == 'Model' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th class="sortable-header" data-sort="Kind">Art {% if current_sort == 'Kind' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th class="sortable-header" data-sort="Fuel">Kraftstoff {% if current_sort == 'Fuel' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th class="sortable-header" data-sort="mileage">Km-Stand {% if current_sort == 'mileage' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th>Verantwortlicher</th>
+                    <th class="sortable-header" data-sort="insurance_expiry">Versicherung {% if current_sort == 'insurance_expiry' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                    <th class="sortable-header" data-sort="technical_expiry">HU/TÜV {% if current_sort == 'technical_expiry' %}{% if current_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vehicle in vehicles %}
+                <tr class="vehicle-row" style="cursor:pointer;"
+                    onclick="toggleDetail('detail-{{ vehicle.RegisterNumber }}', this)">
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                        <i id="icon-{{ vehicle.RegisterNumber }}" class="bi bi-folder me-1"></i>
+                        {{ vehicle.RegisterNumber }}
+                    </td>
+                    <td>{{ vehicle.get_Model_display }}</td>
+                    <td>{{ vehicle.get_Kind_display|default:"-" }}</td>
+                    <td>{{ vehicle.get_Fuel_display|default:"-" }}</td>
+                    <td>{{ vehicle.mileage|default:"-" }}</td>
+                    <td>{% if vehicle.responsible %}{{ vehicle.responsible.get_full_name|default:vehicle.responsible.username }}{% else %}-{% endif %}</td>
+                    <td>{% if vehicle.insurance_expiry %}{{ vehicle.insurance_expiry }}{% else %}-{% endif %}</td>
+                    <td>{% if vehicle.technical_expiry %}{{ vehicle.technical_expiry }}{% else %}-{% endif %}</td>
+                </tr>
+                <!-- DETAIL ROW -->
+                <tr id="detail-{{ vehicle.RegisterNumber }}" style="display:none;">
+                    <td colspan="9" class="bg-light p-3">
+                        <!-- BUTTONS -->
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-primary btn-sm"
+                                onclick="openEditModal(
+                                    '{{ vehicle.RegisterNumber }}',
+                                    {{ vehicle.Model }},
+                                    '{{ vehicle.Kind|default:'' }}',
+                                    '{{ vehicle.Fuel|default:'' }}',
+                                    '{{ vehicle.mileage|default:'' }}',
+                                    '{{ vehicle.purchase_date|default:'' }}',
+                                    '{{ vehicle.responsible_id|default:'' }}',
+                                    '{{ vehicle.insurance_expiry|default:'' }}',
+                                    '{{ vehicle.technical_expiry|default:'' }}',
+                                    '{{ vehicle.Description|escapejs }}'
+                                )">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm"
+                                onclick="deleteVehicle('{{ vehicle.RegisterNumber }}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                        <!-- DETAILS -->
+                        <div class="row">
+                            <div class="col-md-3">
+                                {% if vehicle.Image %}
+                                    <img src="{{ vehicle.Image.url }}" 
+                                        style="width:100px; height:100px; border-radius:8px; object-fit:cover; cursor:pointer;"
+                                        onmouseover="showPreview(this, '{{ vehicle.Image.url }}')"
+                                        onmouseout="hidePreview()">
+
+                                {% else %}
+                                    <span class="text-muted">🚗 No Image</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <p><strong>Kennzeichen:</strong> {{ vehicle.RegisterNumber }}</p>
+                                <p><strong>Modell:</strong> {{ vehicle.get_Model_display }}</p>
+                                <p><strong>Art:</strong> {{ vehicle.get_Kind_display|default:"-" }}</p>
+                                <p><strong>Kraftstoff:</strong> {{ vehicle.get_Fuel_display|default:"-" }}</p>
+                            </div>
+                            <div class="col-md-5">
+                                <p><strong>Km-Stand:</strong> {{ vehicle.mileage|default:"-" }}</p>
+                                <p><strong>Versicherung:</strong> {{ vehicle.insurance_expiry|default:"-" }}</p>
+                                <p><strong>HU/TÜV:</strong> {{ vehicle.technical_expiry|default:"-" }}</p>
+                                <p><strong>Verantwortlicher:</strong> {% if vehicle.responsible %}{{ vehicle.responsible.get_full_name|default:vehicle.responsible.username }}{% else %}-{% endif %}</p>
+                                {% if vehicle.Description %}
+                                <p><strong>Beschreibung:</strong> {{ vehicle.Description }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="text-center text-muted">Keine Fahrzeuge gefunden</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- PAGINATION -->
+<div class="d-flex justify-content-center gap-2 p-2">
+    {% if page_obj.has_previous %}
+        <a href="?{{ query_params }}&page=1" class="btn btn-sm btn-outline-secondary">⏮ First</a>
+        <a href="?{{ query_params }}&page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-secondary">⬅ Prev</a>
+    {% endif %}
+    <span class="btn btn-sm btn-light">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+        <a href="?{{ query_params }}&page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-secondary">Next ➡</a>
+        <a href="?{{ query_params }}&page={{ page_obj.paginator.num_pages }}" class="btn btn-sm btn-outline-secondary">Last ⏭</a>
+    {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'vehicle_add' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">➕ Add Vehicle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ Edit Vehicle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% csrf_token %}
+                <input type="hidden" id="editId">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Modell</label>
+                        <select id="editModel" class="form-control">
+                            {% for val, label in model_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Art</label>
+                        <select id="editKind" class="form-control">
+                            <option value="">---</option>
+                            {% for val, label in kind_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Kraftstoff</label>
+                        <select id="editFuel" class="form-control">
+                            <option value="">---</option>
+                            {% for val, label in fuel_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Km-Stand</label>
+                        <input type="number" id="editMileage" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Kaufdatum</label>
+                        <input type="date" id="editPurchaseDate" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Verantwortlicher</label>
+                        <select id="editResponsible" class="form-control">
+                            <option value="">--- Kein Fahrer ---</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Versicherung läuft ab</label>
+                        <input type="date" id="editInsuranceExpiry" class="form-control">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">HU/TÜV läuft ab</label>
+                        <input type="date" id="editTechnicalExpiry" class="form-control">
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Bild</label>
+                        <input type="file" id="editImage" class="form-control" accept="">
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="editDescription" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="saveEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">🗑️ Delete Vehicle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Möchten Sie dieses Fahrzeug wirklich löschen?</p>
+                <p><strong id="deleteVehicleName"></strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% if show_modal %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            new bootstrap.Modal(document.getElementById('addModal')).show();
+        });
+    </script>
+{% endif %}
+<script src="{% static 'Vehicle/js/vehicle.js' %}"></script>
+
+{% endblock %}
