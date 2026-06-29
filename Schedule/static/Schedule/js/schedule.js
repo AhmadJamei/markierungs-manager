@@ -279,13 +279,16 @@ function confirmCancel() {
     });
 }
 
-function openNoteModal(workdayId, workerId, workerName) {
+function openNoteModal(e, workdayId, workerId, workerName) {
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    e.preventDefault();
+
     document.getElementById('noteWorkdayId').value = workdayId;
     document.getElementById('noteWorkerId').value = workerId;
     document.getElementById('noteWorkerName').textContent = workerName;
     document.getElementById('noteText').value = '';
 
-    // گرفتن یادداشت قبلی
     fetch(`/schedule/note/get/${workdayId}/${workerId}/`)
         .then(r => r.json())
         .then(data => {
@@ -294,7 +297,8 @@ function openNoteModal(workdayId, workerId, workerName) {
             }
         });
 
-    var modal = new bootstrap.Modal(document.getElementById('noteModal'));
+    var modalEl = document.getElementById('noteModal');
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 }
 
