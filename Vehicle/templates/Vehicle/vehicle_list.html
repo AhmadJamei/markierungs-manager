@@ -132,7 +132,7 @@
                 {% for vehicle in vehicles %}
                 <tr class="vehicle-row" style="cursor:pointer;"
                     onclick="toggleDetail('detail-{{ vehicle.RegisterNumber }}', this)">
-                    <td>{{ forloop.counter }}</td>
+                    <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
                     <td>
                         <i id="icon-{{ vehicle.RegisterNumber }}" class="bi bi-folder me-1"></i>
                         {{ vehicle.RegisterNumber }}

@@ -1,9 +1,19 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from .models import LeaveRequest
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 import json
 from datetime import datetime, timedelta
+from Settings.models import CompanySettings
+
+# PDF generation
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+
+# Ensure CustomUser reference
+CustomUser = get_user_model()
 
 
 @login_required
@@ -105,27 +115,6 @@ def manager_leave_view(request):
     return render(request, 'Calendar/manager_leave.html', context)
 
 
-@login_required
-def approve_leave(request, pk):
-    if not request.user.groups.filter(name='manager').exists():
-        return JsonResponse({'status': 'error'}, status=403)
-
-    leave = get_object_or_404(LeaveRequest, pk=pk)
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        action = data.get('action')
-        manager_note = data.get('manager_note', '')
-        if action == 'approve':
-            leave.status = 'approved'
-        elif action == 'reject':
-            leave.status = 'rejected'
-        leave.manager_note = manager_note
-        leave.save()
-        return JsonResponse({'status': 'ok'})
-    return JsonResponse({'status': 'error'}, status=400)
-
-from django.db.models import Sum, Count
-from Accounts.models import CustomUser
 
 @login_required
 def leave_report(request):
@@ -137,6 +126,12 @@ def leave_report(request):
     
     # همه کارمندان
     users = CustomUser.objects.all()
+    # حداکثر روز مرخصی از تنظیمات شرکت (یا مقدار پیش‌فرض 30)
+    try:
+        cs = CompanySettings.objects.first()
+        max_days = getattr(cs, 'max_holiday_days', 30) or 30
+    except:
+        max_days = 30
     
     report_data = []
     for user in users:
@@ -154,6 +149,8 @@ def leave_report(request):
             [(l.end_date - l.start_date).days + 1 for l in leaves.filter(leave_type='ill')]
         )
         total_ill_days = sum(item['ill_days'] for item in report_data)
+        pct = (holiday_days / max_days) * 100 if max_days else 0
+        bar_color = '#dc3545' if pct > 83 else '#fd7e14' if pct > 50 else '#28a745'
 
         report_data.append({
             'user': user,
@@ -162,7 +159,11 @@ def leave_report(request):
             'total_days': holiday_days + ill_days,
             'total_ill_days': total_ill_days,
             'total_holiday_days': total_holiday_days,
-            'remaining': 30 - holiday_days,  # حداکثر 30 روز مرخصی
+            'remaining': max_days - holiday_days,  # حداقل با مقدار تنظیمات شرکت
+            'max_days': max_days,
+            'bar_color': bar_color,
+
+
         })
         print("HOLIDAYDAYS:",total_holiday_days)
         print("ILLDAYS:",total_ill_days)
@@ -176,72 +177,50 @@ def leave_report(request):
         'years': range(2023, datetime.now().year + 1),
         'total_ill_days': total_ill_days,
         'total_holiday_days': total_holiday_days,
+        'max_days': max_days,
+
     }
     return render(request, 'Calendar/leave_report.html', context)
 
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from django.http import HttpResponse
-
 
 @login_required
-def leave_report_excel(request):
+def approve_leave(request, pk):
     if not request.user.groups.filter(name='manager').exists():
         return JsonResponse({'status': 'error'}, status=403)
 
-    year = request.GET.get('year', datetime.now().year)
-    users = CustomUser.objects.all()
+    leave = get_object_or_404(LeaveRequest, pk=pk)
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        action = data.get('action')
+        manager_note = data.get('manager_note', '')
+        
+        if action == 'approve':
+            leave.status = 'approved'
+            # آپدیت وضعیت Employee
+            try:
+                employee = leave.user.employee
+                if leave.leave_type == 'holiday':
+                    employee.status = 'vacation'
+                elif leave.leave_type == 'ill':
+                    employee.status = 'sick'
+                employee.save()
+            except:
+                pass
+                
+        elif action == 'reject':
+            leave.status = 'rejected'
+            # برگردوندن به active
+            try:
+                employee = leave.user.employee
+                employee.status = 'active'
+                employee.save()
+            except:
+                pass
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Leave Report'
-
-    # HEADER
-    headers = ['Employee', 'Holiday Days', 'Ill Days', 'Total Days', 'Remaining']
-    ws.append(headers)
-
-    for cell in ws[1]:
-        cell.font = Font(bold=True, color='FFFFFF')
-        cell.fill = PatternFill(fill_type='solid', fgColor='0d6efd')
-        cell.alignment = Alignment(horizontal='center')
-
-    # DATA
-    for user in users:
-        leaves = LeaveRequest.objects.filter(
-            user=user,
-            status='approved',
-            start_date__year=year
-        )
-        holiday_days = sum(
-            [(l.end_date - l.start_date).days + 1 for l in leaves.filter(leave_type='holiday')]
-        )
-        ill_days = sum(
-            [(l.end_date - l.start_date).days + 1 for l in leaves.filter(leave_type='ill')]
-        )
-        ws.append([
-            user.get_full_name() or user.username,
-            holiday_days,
-            ill_days,
-            holiday_days + ill_days,
-            30 - holiday_days,
-        ])
-
-    ws.column_dimensions['A'].width = 25
-    ws.column_dimensions['B'].width = 15
-    ws.column_dimensions['C'].width = 15
-    ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 15
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = f'attachment; filename=leave_report_{year}.xlsx'
-    wb.save(response)
-    return response
-
+        leave.manager_note = manager_note
+        leave.save()
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'error'}, status=400)
 
 @login_required
 def leave_report_pdf(request):
@@ -299,4 +278,60 @@ def leave_report_pdf(request):
 
     elements.append(table)
     doc.build(elements)
+    return response
+
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+
+@login_required
+def leave_report_excel(request):
+    if not request.user.groups.filter(name='manager').exists():
+        return JsonResponse({'status': 'error'}, status=403)
+
+    year = request.GET.get('year', datetime.now().year)
+    users = CustomUser.objects.all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Leave Report'
+
+    headers = ['Employee', 'Holiday Days', 'Ill Days', 'Total Days', 'Remaining']
+    ws.append(headers)
+
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(fill_type='solid', fgColor='0d6efd')
+        cell.alignment = Alignment(horizontal='center')
+
+    for user in users:
+        leaves = LeaveRequest.objects.filter(
+            user=user,
+            status='approved',
+            start_date__year=year
+        )
+        holiday_days = sum(
+            [(l.end_date - l.start_date).days + 1 for l in leaves.filter(leave_type='holiday')]
+        )
+        ill_days = sum(
+            [(l.end_date - l.start_date).days + 1 for l in leaves.filter(leave_type='ill')]
+        )
+        ws.append([
+            user.get_full_name() or user.username,
+            holiday_days,
+            ill_days,
+            holiday_days + ill_days,
+            30 - holiday_days,
+        ])
+
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=leave_report_{year}.xlsx'
+    wb.save(response)
     return response

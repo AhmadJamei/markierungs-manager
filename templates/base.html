@@ -124,7 +124,18 @@
             </li>
 
             <div class="sidebar-divider"></div>
-
+            {% if user.is_authenticated %}
+                {% for group in user.groups.all %}
+                    {% if group.name == 'manager' %}
+                        <li>
+                            <a href="{% url 'employee_list' %}">
+                                <i class="bi bi-people-fill"></i>
+                                <span class="menu-text">Employees</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
             <!-- HR -->
             <li>
                 <a href="{% url 'calendarView' %}">

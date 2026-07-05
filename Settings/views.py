@@ -37,6 +37,12 @@ def company_update(request):
             company.phone = data.get('phone', company.phone)
             company.email = data.get('email', company.email)
             company.website = data.get('website', company.website)
+            print("DATA:", dict(data))  # ← اینجا
+            print("MAX DAYS VALUE:", data.get('max_holiday_days'))  # ← اینجا
+            company.max_holiday_days = int(data.get('max_holiday_days', company.max_holiday_days))
+            print("MAX DAYS:", company.max_holiday_days)  # ← اینجا
+            
+            company.max_holiday_days = int(data.get('max_holiday_days', company.max_holiday_days))
             if 'logo' in request.FILES:
                 company.logo = request.FILES['logo']
         else:
@@ -48,7 +54,9 @@ def company_update(request):
             company.phone = data.get('phone', company.phone)
             company.email = data.get('email', company.email)
             company.website = data.get('website', company.website)
-        
+            company.max_holiday_days = int(data.get('max_holiday_days', company.max_holiday_days))
+        print("MAX DAYS:", company.max_holiday_days)  # ← اضافه کن
+
         company.save()
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)

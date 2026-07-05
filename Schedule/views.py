@@ -67,7 +67,11 @@ def schedule_view(request):
         'prev_week': (week_start - timedelta(days=7)).strftime('%Y-%m-%d'),
         'next_week': (week_start + timedelta(days=7)).strftime('%Y-%m-%d'),
         'contracts': Contract.objects.all(),
-        'workers': CustomUser.objects.filter(groups__name='worker'),
+        'workers': CustomUser.objects.filter(
+            groups__name='worker'
+        ).exclude(
+            employee__status='terminated'
+        ),
         'vehicles': Vehicle.objects.all(),  # ← اضافه شد
 
     }

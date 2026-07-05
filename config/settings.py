@@ -34,7 +34,6 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
 
 INSTALLED_APPS = [
     # local Apps
-    'Accounts',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -46,6 +45,8 @@ INSTALLED_APPS = [
     "crispy_bootstrap4",
 
     #local apps
+    
+    'Accounts',
     'Firstpage',
     'Customer',
     'Contract',

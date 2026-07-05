@@ -26,7 +26,8 @@ function saveCompany() {
     formData.append('phone', document.getElementById('companyPhone').value);
     formData.append('email', document.getElementById('companyEmail').value);
     formData.append('website', document.getElementById('companyWebsite').value);
-
+    formData.append('max_holiday_days', document.getElementById('maxHolidayDays').value);
+    
     const logo = document.getElementById('companyLogo').files[0];
     if (logo) formData.append('logo', logo);
 

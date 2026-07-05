@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="p-3">
+    <h4 class="mb-3">👷 Employee List</h4>
+
+    <!-- فیلتر وضعیت -->
+    <div class="d-flex gap-2 mb-3">
+        <a href="?" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            All
+        </a>
+        <a href="?status=active" class="btn btn-sm {% if status_filter == 'active' %}btn-success{% else %}btn-outline-success{% endif %}">
+            ✅ Active
+        </a>
+        <a href="?status=vacation" class="btn btn-sm {% if status_filter == 'vacation' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+            🏖️ Vacation
+        </a>
+        <a href="?status=sick" class="btn btn-sm {% if status_filter == 'sick' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+            🤒 Sick
+        </a>
+        <a href="?status=terminated" class="btn btn-sm {% if status_filter == 'terminated' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+            ❌ Terminated
+        </a>
+    </div>
+
+    <!-- جدول -->
+    <table class="table table-bordered table-hover table-sm">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Phone</th>
+                <th>Licenses</th>
+                <th>Employment Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr style="cursor:pointer;" onclick='window.location.href="/accounts/employees/{{ emp.pk }}/"'>
+                    <td>{{ forloop.counter }}</td>                <td>
+                    {% if emp.photo %}
+                        <img src="{{ emp.photo.url }}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">
+                    {% else %}
+                        👷
+                    {% endif %}
+                </td>
+                <td>{{ emp.first_name }} {{ emp.last_name }}</td>
+                <td>
+                    {% if emp.current_status == 'active' %}
+                        <span class="badge bg-success">✅ Active</span>
+                    {% elif emp.current_status == 'vacation' %}
+                        <span class="badge bg-warning text-dark">🏖️ Vacation</span>
+                    {% elif emp.current_status == 'sick' %}
+                        <span class="badge bg-danger">🤒 Sick</span>
+                    {% elif emp.current_status == 'terminated' %}
+                        <span class="badge bg-secondary">❌ Terminated</span>
+                    {% endif %}
+                </td>
+                <td>{{ emp.phone|default:"-" }}</td>
+
+                <td>
+                    {% if emp.license_B %}<span class="badge bg-primary">B</span>{% endif %}
+                    {% if emp.license_BE %}<span class="badge bg-primary">BE</span>{% endif %}
+                    {% if emp.license_C %}<span class="badge bg-success">C</span>{% endif %}
+                    {% if emp.license_C1 %}<span class="badge bg-success">C1</span>{% endif %}
+                    {% if emp.license_CE %}<span class="badge bg-success">CE</span>{% endif %}
+                    {% if emp.license_liftruck %}<span class="badge bg-warning text-dark">🏗️</span>{% endif %}
+                </td>
+                <td>{{ emp.date_of_employment|default:"-" }}</td>
+            </tr>
+            {% empty %}
+                <tr><td colspan="8" class="text-center text-muted">No employees found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

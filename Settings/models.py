@@ -10,7 +10,8 @@ class CompanySettings(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     website = models.URLField(blank=True)
-
+    max_holiday_days = models.IntegerField(default=30)  
+    
     def __str__(self):
         return self.name
 

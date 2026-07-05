@@ -10,5 +10,5 @@ urlpatterns = [
     path('approve/<int:pk>/', views.approve_leave, name='approve_leave'),
     path('report/', views.leave_report, name='leave_report'),
     path('report/excel/', views.leave_report_excel, name='leave_report_excel'),
-path('report/pdf/', views.leave_report_pdf, name='leave_report_pdf'),
-]
+    path('report/pdf/', views.leave_report_pdf, name='leave_report_pdf'),
+]  

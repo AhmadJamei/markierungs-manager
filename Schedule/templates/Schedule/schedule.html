@@ -235,9 +235,18 @@
                                 type="checkbox" 
                                 value="{{ worker.id }}" 
                                 id="worker_{{ worker.id }}">
-                            <label class="form-check-label" for="worker_{{ worker.id }}">
-                                {{ worker.get_full_name|default:worker.username }}
-                            </label>
+                    <label class="form-check-label" for="worker_{{ worker.id }}">
+                        {{ worker.get_full_name|default:worker.username }}
+                        {% with leave=worker|active_leave %}
+                            {% if leave %}
+                                {% if leave.leave_type == 'ill' %}
+                                    <span class="badge bg-danger" style="font-size:9px;">🤒 Sick {{ leave.start_date|date:"d.m" }} - {{ leave.end_date|date:"d.m" }}</span>
+                                {% elif leave.leave_type == 'holiday' %}
+                                    <span class="badge bg-warning text-dark" style="font-size:9px;">🏖️ Vacation {{ leave.start_date|date:"d.m" }} - {{ leave.end_date|date:"d.m" }}</span>
+                                {% endif %}
+                            {% endif %}
+                        {% endwith %}
+                    </label>
                         </div>
                         {% endfor %}
                     </div>

@@ -109,7 +109,7 @@
                 <tr class="customer-row" 
                     style="cursor:pointer;"
                     onclick="toggleDetail('detail-{{ customer.id }}', this)">
-                    <td>{{ forloop.counter }}</td>
+                    <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
                     <td>
                         <i id="icon-{{ customer.id }}" class="bi bi-folder me-1"></i>
                         {{ customer.IDCustomer }}

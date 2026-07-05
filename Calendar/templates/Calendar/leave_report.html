@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
+{% load calendar_tags %}
 
 {% block content %}
 <div class="p-3">
@@ -73,7 +74,24 @@
                     <tr>
                         <td>{{ forloop.counter }}</td>
                         <td>{{ r.user.get_full_name|default:r.user.username }}</td>
-                        <td>{{ r.holiday_days }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span style="min-width:25px;">{{ r.holiday_days }}</span>
+                                <div style="flex:1; background:#e9ecef; border-radius:4px; height:12px; min-width:100px;">
+                                    {% with pct=r.holiday_days|stringformat:"s" %}
+                                        <div style="
+                                            width:{{ r.holiday_days|percentage:max_days }}%;
+                                            height:12px;
+                                            border-radius:4px;
+                                            background:{% if r.holiday_days > 25 %}#dc3545{% elif r.holiday_days > 15 %}#fd7e14{% else %}#28a745{% endif %};">
+                                        </div>
+                                    {% endwith %}
+                                </div>
+                                {% if r.holiday_days > max_days %}
+                                    <span class="badge bg-danger" style="font-size:9px;">+{{ r.holiday_days|add:max_days|add:"-"|add:max_days }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
                         <td>{{ r.ill_days }}</td>
                         <td><strong>{{ r.total_days }}</strong></td>
                         <td>
@@ -86,9 +104,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if r.holiday_days > 30 %}
+                            {% if r.holiday_days > max_days %}
                                 <span class="badge bg-danger">Over limit!</span>
-                            {% elif r.holiday_days > 25 %}
+                            {% elif r.holiday_days > max_days|add:"-5" %}
                                 <span class="badge bg-warning text-dark">Almost full</span>
                             {% else %}
                                 <span class="badge bg-success">OK</span>
