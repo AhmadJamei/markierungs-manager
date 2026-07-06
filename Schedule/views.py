@@ -4,20 +4,22 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.conf import settings
 from django.core.cache import cache
+from django.http import HttpResponse
 from datetime import datetime, timedelta
-import json
-import requests
 from Vehicle.models import Vehicle
 from .models import WorkDay
 from Contract.models import Contract
 from Accounts.models import CustomUser
-import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from django.http import HttpResponse
 from .models import WorkDay, WorkDayWorkerNote, WorkReport, WorkReportImage
+from .models import WorkDay, WorkDayWorkerNote, WorkReport, WorkReportImage, WorkReportAudio
+
+import json
+import requests
+import openpyxl
 
 
 @login_required
@@ -556,7 +558,14 @@ def add_report(request, workday_id):
                 image=image,
                 caption=request.POST.get('caption', '')
             )
-        
+        # آپلود صدا
+        audio_file = request.FILES.get('audio')
+        if audio_file:
+            WorkReportAudio.objects.create(
+                report=report,
+                audio=audio_file,
+            )
+
         return JsonResponse({'status': 'ok', 'report_id': report.id})
     return JsonResponse({'status': 'error'}, status=400)
 
@@ -570,17 +579,19 @@ def get_report(request, workday_id):
         )
         images = [{'id': img.id, 'url': img.image.url, 'caption': img.caption} 
                   for img in report.images.all()]
+        audios = [{'id': aud.id, 'url': aud.audio.url} 
+                  for aud in report.audios.all()]
         return JsonResponse({
             'status': 'ok',
             'report_id': report.id,
             'text': report.text,
             'status_value': report.status,
             'engineer_note': report.engineer_note,
-            'images': images
+            'images': images,
+            'audios': audios,
         })
     except WorkReport.DoesNotExist:
-        return JsonResponse({'status': 'ok', 'text': '', 'images': []})
-
+        return JsonResponse({'status': 'ok', 'text': '', 'images': [], 'audios': []})
 
 @login_required
 def delete_report_image(request, image_id):

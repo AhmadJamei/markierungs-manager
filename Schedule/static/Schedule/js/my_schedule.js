@@ -20,7 +20,8 @@ function openReportModal(workdayId) {
     document.getElementById('reportStatus').innerHTML = '';
     document.getElementById('engineerNoteDiv').style.display = 'none';
     document.getElementById('reportImages').value = '';
-
+    discardAudio();
+    document.getElementById('existingAudios').innerHTML = '';
     // گرفتن گزارش قبلی
     fetch(`/schedule/report/get/${workdayId}/`)
         .then(r => r.json())
@@ -60,6 +61,16 @@ function openReportModal(workdayId) {
                                 style="position:absolute; top:-5px; right:-5px; background:red; color:white; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer;">✕</button>
                         `;
                         container.appendChild(div);
+                        // نمایش صداهای موجود
+                        const audioContainer = document.getElementById('existingAudios');
+                        if (data.audios && data.audios.length > 0) {
+                            data.audios.forEach(aud => {
+                                const div = document.createElement('div');
+                                div.className = 'mb-1';
+                                div.innerHTML = `<audio controls src="${aud.url}" style="width:100%; height:36px;"></audio>`;
+                                audioContainer.appendChild(div);
+                            });
+                        }
                     });
                 }
             }
@@ -88,6 +99,10 @@ function saveReport() {
     const cameraFiles = document.getElementById('reportCamera').files;
     for (let i = 0; i < cameraFiles.length; i++) {
         formData.append('images', cameraFiles[i]);
+    }
+
+    if (audioBlob) {
+        formData.append('audio', audioBlob, 'voice_record.webm');
     }
 
     fetch(`/schedule/report/add/${workdayId}/`, {
@@ -182,3 +197,63 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 });
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingTimer = null;
+let recordingSeconds = 0;
+let audioBlob = null;
+
+function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const url = URL.createObjectURL(audioBlob);
+                document.getElementById('audioPlayer').src = url;
+                document.getElementById('audioPreview').style.display = 'block';
+                stream.getTracks().forEach(t => t.stop());
+            };
+            mediaRecorder.start();
+            recordingSeconds = 0;
+            document.getElementById('recordTimer').style.display = 'inline';
+            document.getElementById('recordBtn').textContent = '⏹️ Stop Recording';
+            document.getElementById('recordBtn').classList.replace('btn-outline-danger', 'btn-danger');
+            recordingTimer = setInterval(() => {
+                recordingSeconds++;
+                const min = Math.floor(recordingSeconds / 60);
+                const sec = recordingSeconds % 60;
+                document.getElementById('recordTimer').textContent = 
+                    `⏺️ ${min}:${sec.toString().padStart(2, '0')}`;
+                if (recordingSeconds >= 180) stopRecording();
+            }, 1000);
+        })
+        .catch(() => alert('Microphone access denied!'));
+}
+
+function stopRecording() {
+    if (mediaRecorder) {
+        mediaRecorder.stop();
+        clearInterval(recordingTimer);
+        document.getElementById('recordTimer').style.display = 'none';
+        document.getElementById('recordBtn').textContent = '🎙️ Start Recording';
+        document.getElementById('recordBtn').classList.replace('btn-danger', 'btn-outline-danger');
+    }
+}
+
+function discardAudio() {
+    audioBlob = null;
+    document.getElementById('audioPreview').style.display = 'none';
+    document.getElementById('audioPlayer').src = '';
+}

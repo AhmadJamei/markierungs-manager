@@ -3,14 +3,14 @@ from django.http import JsonResponse, HttpResponse
 from .models import LeaveRequest
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
-import json
 from datetime import datetime, timedelta
 from Settings.models import CompanySettings
-
-# PDF generation
+from openpyxl.styles import Font, PatternFill, Alignment
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
+import openpyxl
+import json
 
 # Ensure CustomUser reference
 CustomUser = get_user_model()
@@ -280,8 +280,7 @@ def leave_report_pdf(request):
     doc.build(elements)
     return response
 
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
+
 
 @login_required
 def leave_report_excel(request):

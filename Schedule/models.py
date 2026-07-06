@@ -124,3 +124,16 @@ class WorkReportImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.report}"
+
+class WorkReportAudio(models.Model):
+    report = models.ForeignKey(
+        WorkReport,
+        on_delete=models.CASCADE,
+        related_name='audios'
+    )
+    audio = models.FileField(upload_to='reports/audio/')
+    duration = models.IntegerField(default=0)  # ثانیه
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Audio for {self.report}"
