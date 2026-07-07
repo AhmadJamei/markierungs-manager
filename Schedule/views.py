@@ -343,7 +343,6 @@ def worker_report(request):
     print(report_data)
     return render(request, 'Schedule/worker_report.html', context)
 
-
 @login_required
 def worker_report_excel(request):
     if not request.user.groups.filter(name__in=['manager', 'engineer']).exists():
@@ -466,7 +465,6 @@ def worker_report_pdf(request):
     doc.build(elements)
     return response
 
-
 @login_required
 def save_worker_note(request, workday_id, worker_id):
     if request.method == 'POST':
@@ -482,7 +480,6 @@ def save_worker_note(request, workday_id, worker_id):
         
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
-
 
 @login_required
 def get_worker_note(request, workday_id, worker_id):
@@ -532,7 +529,6 @@ def my_schedule(request):
     }
     return render(request, 'Schedule/my_schedule.html', context)
 
-
 @login_required
 def add_report(request, workday_id):
     workday = get_object_or_404(WorkDay, pk=workday_id)
@@ -569,7 +565,6 @@ def add_report(request, workday_id):
         return JsonResponse({'status': 'ok', 'report_id': report.id})
     return JsonResponse({'status': 'error'}, status=400)
 
-
 @login_required
 def get_report(request, workday_id):
     try:
@@ -600,7 +595,6 @@ def delete_report_image(request, image_id):
         image.delete()
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=403)
-
 
 @login_required
 def review_report(request, report_id):
@@ -649,6 +643,8 @@ def workday_detail(request, pk):
         'reports__worker',
         'reports__images',
         'contract__materials__material',
+        'reports__audios',  #*  اضافه شد
+
     ).first()
 
     context = {

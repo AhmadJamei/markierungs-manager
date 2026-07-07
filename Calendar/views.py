@@ -20,7 +20,6 @@ CustomUser = get_user_model()
 def calendarView(request):
     return render(request, 'Calendar/calendar.html')
 
-
 @login_required
 def get_leaves(request):
     leaves = LeaveRequest.objects.filter(user=request.user)
@@ -45,10 +44,10 @@ def get_leaves(request):
             else:
                 color = "#7F8C8D"
 
-        events.append({  # ← اینجا باید با for هم‌تراز باشه
+        events.append({  #  اینجا باید با for هم‌تراز باشه
             "title": f"{leave.get_leave_type_display()} ({leave.get_status_display()})",
             "start": leave.start_date.strftime("%Y-%m-%d"),
-            "end": (leave.end_date + timedelta(days=1)).strftime("%Y-%m-%d"),  # ← یه روز اضافه
+            "end": (leave.end_date + timedelta(days=1)).strftime("%Y-%m-%d"),  #  یه روز اضافه
             "color": color,
             "extendedProps": {
                 "leave_type": leave.leave_type,
@@ -57,7 +56,7 @@ def get_leaves(request):
             }
         })
 
-    return JsonResponse(events, safe=False)  # ← اینجا باید خارج از for باشه
+    return JsonResponse(events, safe=False)  #  اینجا باید خارج از for باشه
 
 @login_required
 def add_leave(request):
@@ -99,7 +98,6 @@ def delete_leave(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Cannot delete approved/rejected leave'})
     return JsonResponse({'status': 'error'}, status=400)
 
-
 @login_required
 def manager_leave_view(request):
     if not request.user.groups.filter(name='manager').exists():
@@ -113,8 +111,6 @@ def manager_leave_view(request):
         'processed': processed,
     }
     return render(request, 'Calendar/manager_leave.html', context)
-
-
 
 @login_required
 def leave_report(request):
@@ -279,8 +275,6 @@ def leave_report_pdf(request):
     elements.append(table)
     doc.build(elements)
     return response
-
-
 
 @login_required
 def leave_report_excel(request):

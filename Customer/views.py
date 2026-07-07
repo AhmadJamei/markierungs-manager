@@ -117,7 +117,6 @@ def customer_delete(request, pk):
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
 
-
 @login_required
 def customer_contracts(request, pk):
     contracts = Contract.objects.filter(Customer_id=pk)

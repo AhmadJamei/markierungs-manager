@@ -1,10 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-import json
-
 from .models import CompanySettings, MaterialType, ContractType
-
+import json
 
 @login_required
 def settings_view(request):
@@ -18,7 +16,6 @@ def settings_view(request):
         'category_choices': MaterialType.CATEGORY_CHOICES,
     }
     return render(request, 'Settings/settings.html', context)
-
 
 @login_required
 def company_update(request):
@@ -61,7 +58,6 @@ def company_update(request):
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
 
-
 @login_required
 def material_type_add(request):
     if not request.user.groups.filter(name='manager').exists():
@@ -77,7 +73,6 @@ def material_type_add(request):
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
 
-
 @login_required
 def material_type_delete(request, pk):
     if not request.user.groups.filter(name='manager').exists():
@@ -88,7 +83,6 @@ def material_type_delete(request, pk):
         material_type.delete()
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
-
 
 @login_required
 def contract_type_add(request):
@@ -103,7 +97,6 @@ def contract_type_add(request):
         )
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error'}, status=400)
-
 
 @login_required
 def contract_type_delete(request, pk):
