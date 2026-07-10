@@ -1,3 +1,5 @@
+import os
+
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -5,18 +7,21 @@ from django.db.models import Q
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from Vehicle.models import Vehicle
-from .models import WorkDay
 from Contract.models import Contract
 from Accounts.models import CustomUser
 from openpyxl.styles import Font, PatternFill, Alignment
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from .models import WorkDay, WorkDayWorkerNote, WorkReport, WorkReportImage
 from .models import WorkDay, WorkDayWorkerNote, WorkReport, WorkReportImage, WorkReportAudio
-
+from io import BytesIO
+import requests as req
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
 import json
 import requests
 import openpyxl
@@ -69,6 +74,7 @@ def schedule_view(request):
         'prev_week': (week_start - timedelta(days=7)).strftime('%Y-%m-%d'),
         'next_week': (week_start + timedelta(days=7)).strftime('%Y-%m-%d'),
         'contracts': Contract.objects.all(),
+        'current_week': week_start.strftime('%Y-%m-%d'),
         'workers': CustomUser.objects.filter(
             groups__name='worker'
         ).exclude(
@@ -651,3 +657,190 @@ def workday_detail(request, pk):
         'workday': workday,
     }
     return render(request, 'Schedule/workday_detail.html', context)
+
+@login_required
+def generate_weekly_pptx(request):
+    from pptx import Presentation
+    from pptx.util import Inches
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from io import BytesIO
+    import copy
+    import os
+    from lxml import etree
+
+    # گرفتن هفته
+    week_str = request.GET.get('week')
+    if week_str:
+        week_start = datetime.strptime(week_str, '%Y-%m-%d').date()
+    else:
+        today = datetime.now().date()
+        week_start = today - timedelta(days=today.weekday())
+
+    week_end = week_start + timedelta(days=6)
+    week_number = week_start.isocalendar()[1]
+
+    # گرفتن workday ها
+    workdays = WorkDay.objects.filter(
+        date__range=[week_start, week_end]
+    ).select_related('contract').prefetch_related(
+        'workers', 'workers__employee'
+    ).order_by('date')
+
+    from Settings.models import CompanySettings
+    company = CompanySettings.objects.first()
+
+    DAY_NAMES = {0:'Monday', 1:'Tuesday', 2:'Wednesday', 3:'Thursday', 4:'Friday', 5:'Saturday', 6:'Sunday'}
+
+    template_path = os.path.join(settings.BASE_DIR, 'Schedule', 'static', 'Schedule', 'templates', 'weekly_template.pptx')
+    
+    default_photo = os.path.join(settings.BASE_DIR, 'static', 'assets', 'img', 'Default Picture.jpg')
+
+    def replace_text_in_slide(slide, replacements):
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                for para in shape.text_frame.paragraphs:
+                    for run in para.runs:
+                        for key, val in replacements.items():
+                            if key in run.text:
+                                run.text = run.text.replace(key, str(val))
+
+    def replace_picture_in_slide(slide, placeholder, image_path):
+        for shape in slide.shapes:
+            if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                alt = shape._element.nvPicPr.cNvPr.get('descr', '')
+                if alt == placeholder:
+                    left = shape.left
+                    top = shape.top
+                    width = shape.width
+                    height = shape.height
+                    sp = shape._element
+                    sp.getparent().remove(sp)
+                    try:
+                        slide.shapes.add_picture(image_path, left, top, width, height)
+                    except:
+                        pass
+                    return
+
+    def get_weather_text(workday):
+        try:
+            city = workday.contract.City
+            if not city:
+                return ''
+            from datetime import date as date_type
+            today = date_type.today()
+            if workday.date <= today:
+                url = "https://api.openweathermap.org/data/2.5/weather"
+                params = {'q': city, 'appid': settings.OPENWEATHER_API_KEY, 'units': 'metric', 'lang': 'de'}
+            else:
+                url = "https://api.openweathermap.org/data/2.5/forecast"
+                params = {'q': city, 'appid': settings.OPENWEATHER_API_KEY, 'units': 'metric', 'lang': 'de'}
+            r = requests.get(url, params=params, timeout=3)
+            data = r.json()
+            if workday.date <= today:
+                temp = round(data['main']['temp'])
+                wind = round(data['wind']['speed'])
+                desc = data['weather'][0]['description']
+            else:
+                date_str = workday.date.strftime('%Y-%m-%d')
+                target_hour = 12 if workday.shift == 'day' else 21
+                target_dt = f"{date_str} {target_hour:02d}:00:00"
+                best = data['list'][-1]
+                for item in data['list']:
+                    if item['dt_txt'] >= target_dt:
+                        best = item
+                        break
+                temp = round(best['main']['temp'])
+                wind = round(best['wind']['speed'])
+                desc = best['weather'][0]['description']
+            return f'{temp}°C  |  💨 {wind}m/s  |  {desc}'
+        except:
+            return ''
+
+    # ساختن presentation جدید از template
+    prs = Presentation(template_path)
+
+    # اسلاید ۱ - عنوان
+    title_slide = prs.slides[0]
+    replace_text_in_slide(title_slide, {
+        '{{COMPANY_NAME}}': company.name if company else '',
+        '{{WEEK_NUMBER}}': f'KW {week_number}',
+    })
+
+    # اسلاید template (index 1)
+    template_slide_xml = copy.deepcopy(prs.slides[1]._element)
+    template_slide_layout = prs.slides[1].slide_layout
+
+    # حذف اسلاید template
+    slide_id_list = prs.slides._sldIdLst
+    template_rId = slide_id_list[1].get(
+        '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'
+    )
+    prs.part.drop_rel(template_rId)
+    del slide_id_list[1]
+
+    # اضافه کردن اسلاید برای هر workday
+    for workday in workdays:
+        workers = list(workday.workers.all())
+        weather = get_weather_text(workday)
+
+        replacements = {
+            '{{WEEK_NUMBER}}': f'KW {week_number}',
+            '{{DAY}}': DAY_NAMES[workday.date.weekday()],
+            '{{DATE}}': workday.date.strftime('%d.%m.%Y'),
+            '{{CONTRACT_ID}}': workday.contract.IDContract or '',
+            '{{CONTRACT_NAME}}': workday.contract.Name or '',
+            '{{ADDRESS}}': workday.contract.Address or '',
+            '{{WEATHER}}': weather,
+        }
+        for i in range(1, 7):
+            if i <= len(workers):
+                replacements[f'{{{{WORKER_{i}_NAME}}}}'] = workers[i-1].get_full_name() or workers[i-1].username
+            else:
+                replacements[f'{{{{WORKER_{i}_NAME}}}}'] = ''
+
+        # اضافه کردن اسلاید جدید
+        new_slide = prs.slides.add_slide(template_slide_layout)
+        
+        # کپی محتوای template
+        sp_tree = new_slide.shapes._spTree
+        for child in list(sp_tree):
+            sp_tree.remove(child)
+        
+        new_xml = copy.deepcopy(template_slide_xml)
+        for child in new_xml.find('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}spTree', new_xml.nsmap) or []:
+            sp_tree.append(child)
+        
+        # کپی همه المان‌ها
+        from pptx.oxml.ns import qn
+        template_sp_tree = template_slide_xml.find(qn('p:cSld')).find(qn('p:spTree'))
+        for child in list(sp_tree):
+            sp_tree.remove(child)
+        for child in copy.deepcopy(template_sp_tree):
+            sp_tree.append(child)
+
+        # جایگزینی متن
+        replace_text_in_slide(new_slide, replacements)
+
+        # جایگزینی عکس‌ها
+        for i, worker in enumerate(workers[:6], 1):
+            photo_path = default_photo
+            try:
+                if hasattr(worker, 'employee') and worker.employee.photo:
+                    photo_path = worker.employee.photo.path
+            except:
+                pass
+            replace_picture_in_slide(new_slide, f'{{{{WORKER_{i}_PHOTO}}}}', photo_path)
+
+        for i in range(len(workers)+1, 7):
+            replace_picture_in_slide(new_slide, f'{{{{WORKER_{i}_PHOTO}}}}', default_photo)
+
+    output = BytesIO()
+    prs.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    )
+    response['Content-Disposition'] = f'attachment; filename=weekly_plan_kw{week_number}.pptx'
+    return response

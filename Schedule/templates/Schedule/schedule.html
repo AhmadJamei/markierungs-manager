@@ -20,6 +20,10 @@
                 <button class="btn btn-success btn-sm" 
                     data-bs-toggle="modal" data-bs-target="#addModal">
                     ➕ Add Work Day
+                    <a href="{% url 'weekly_pptx' %}?week={{ current_week }}" 
+                        class="btn btn-warning btn-sm">
+                        📊 Download Weekly PPTX
+                    </a>
                 </button>
             {% endif %}
         {% endfor %}
@@ -89,10 +93,10 @@
                                 <!-- WORKERS -->
                                 {% for worker in workday.workers.all %}
                                     <div class="d-flex align-items-center gap-1 mb-1">
-                                        {% if worker.photo %}
-                                            <img src="{{ worker.photo.url }}" 
+                                        {% if worker.employee.photo %}
+                                            <img src="{{ worker.employee.photo.url }}" 
                                                 style="width:24px; height:24px; border-radius:50%; object-fit:cover; cursor:pointer;"
-                                                onmouseover="showPreview(this, '{{ worker.photo.url }}')"
+                                                onmouseover="showPreview(this, '{{ worker.employee.photo.url }}')"
                                                 onmouseout="hidePreview()">
                                         {% else %}
                                             <span>👷</span>

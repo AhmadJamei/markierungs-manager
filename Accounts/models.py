@@ -4,7 +4,8 @@ from django.conf import settings
 from datetime import date
 
 class CustomUser(AbstractUser):
-    pass
+        photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
+
 class Employee(models.Model):
     
     STATUS_CHOICES = [

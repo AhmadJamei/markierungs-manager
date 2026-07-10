@@ -120,6 +120,12 @@
                             <span class="menu-text">Gallery</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="{% url 'weekly_pptx' %}">
+                            <i class="bi bi-file-earmark-slides"></i>
+                            <span class="menu-text">Weekly PPTX</span>
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -203,8 +209,8 @@
         <div class="sidebar-user">
             {% if user.is_authenticated %}
                 <a href="#">
-                    {% if user.photo %}
-                        <img src="{{ user.photo.url }}" 
+                    {% if user.employee.photo %}
+                        <img src="{{ user.employee.photo.url }}" 
                             style="width:32px; height:32px; border-radius:50%; object-fit:cover; min-width:32px;">
                     {% else %}
                         <i class="bi bi-person-circle" style="font-size:1.3rem; min-width:30px;"></i>

@@ -23,4 +23,5 @@ urlpatterns = [
     path('report/review/<int:report_id>/', views.review_report, name='review_report'),
     path('gallery/', views.contract_gallery, name='contract_gallery'),
     path('workday/<int:pk>/detail/', views.workday_detail, name='workday_detail'),
+    path('weekly-pptx/', views.generate_weekly_pptx, name='weekly_pptx'),
 ]
