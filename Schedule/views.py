@@ -658,15 +658,49 @@ def workday_detail(request, pk):
     }
     return render(request, 'Schedule/workday_detail.html', context)
 
+def duplicate_slide(prs, source_slide):
+    import copy
+    from pptx.oxml.ns import qn
+    
+    new_slide = prs.slides.add_slide(source_slide.slide_layout)
+    
+    # کپی spTree
+    source_spTree = source_slide._element.find(qn('p:cSld')).find(qn('p:spTree'))
+    new_spTree = new_slide._element.find(qn('p:cSld')).find(qn('p:spTree'))
+    
+    for child in list(new_spTree):
+        new_spTree.remove(child)
+    
+    for child in source_spTree:
+        new_spTree.append(copy.deepcopy(child))
+    
+    # کپی background
+    source_bg = source_slide._element.find(qn('p:cSld')).find(qn('p:bg'))
+    if source_bg is not None:
+        new_cSld = new_slide._element.find(qn('p:cSld'))
+        existing_bg = new_cSld.find(qn('p:bg'))
+        if existing_bg is not None:
+            new_cSld.remove(existing_bg)
+        new_cSld.insert(0, copy.deepcopy(source_bg))
+    
+    # کپی transition و timing
+    for tag in [qn('p:transition'), qn('p:timing')]:
+        el = source_slide._element.find(tag)
+        if el is not None:
+            existing = new_slide._element.find(tag)
+            if existing is not None:
+                new_slide._element.remove(existing)
+            new_slide._element.append(copy.deepcopy(el))
+    
+    return new_slide
+
 @login_required
 def generate_weekly_pptx(request):
     from pptx import Presentation
-    from pptx.util import Inches
     from pptx.enum.shapes import MSO_SHAPE_TYPE
     from io import BytesIO
     import copy
     import os
-    from lxml import etree
 
     # گرفتن هفته
     week_str = request.GET.get('week')
@@ -692,19 +726,30 @@ def generate_weekly_pptx(request):
     DAY_NAMES = {0:'Monday', 1:'Tuesday', 2:'Wednesday', 3:'Thursday', 4:'Friday', 5:'Saturday', 6:'Sunday'}
 
     template_path = os.path.join(settings.BASE_DIR, 'Schedule', 'static', 'Schedule', 'templates', 'weekly_template.pptx')
-    
     default_photo = os.path.join(settings.BASE_DIR, 'static', 'assets', 'img', 'Default Picture.jpg')
 
     def replace_text_in_slide(slide, replacements):
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for para in shape.text_frame.paragraphs:
-                    for run in para.runs:
+                    full_text = ''.join([run.text for run in para.runs])
+                    needs_replace = any(key in full_text for key in replacements)
+                    if needs_replace:
+                        new_text = full_text
                         for key, val in replacements.items():
-                            if key in run.text:
-                                run.text = run.text.replace(key, str(val))
+                            new_text = new_text.replace(key, str(val))
+                        if para.runs:
+                            para.runs[0].text = new_text
+                            for run in para.runs[1:]:
+                                run.text = ''
+
+
 
     def replace_picture_in_slide(slide, placeholder, image_path):
+        from pptx.oxml.ns import qn
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        import copy
+        
         for shape in slide.shapes:
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                 alt = shape._element.nvPicPr.cNvPr.get('descr', '')
@@ -713,13 +758,28 @@ def generate_weekly_pptx(request):
                     top = shape.top
                     width = shape.width
                     height = shape.height
+                    
+                    # ذخیره spPr (شامل ellipse و crop)
+                    spPr = copy.deepcopy(shape._element.find(qn('p:spPr')))
+                    
+                    # حذف عکس قدیمی
                     sp = shape._element
                     sp.getparent().remove(sp)
+                    
                     try:
-                        slide.shapes.add_picture(image_path, left, top, width, height)
+                        # اضافه کردن عکس جدید
+                        new_pic = slide.shapes.add_picture(image_path, left, top, width, height)
+                        
+                        # جایگزینی spPr با نسخه اصلی (که ellipse داره)
+                        if spPr is not None:
+                            old_spPr = new_pic._element.find(qn('p:spPr'))
+                            if old_spPr is not None:
+                                new_pic._element.remove(old_spPr)
+                            new_pic._element.append(spPr)
                     except:
                         pass
                     return
+
 
     def get_weather_text(workday):
         try:
@@ -756,7 +816,7 @@ def generate_weekly_pptx(request):
         except:
             return ''
 
-    # ساختن presentation جدید از template
+    # لود template
     prs = Presentation(template_path)
 
     # اسلاید ۱ - عنوان
@@ -766,9 +826,8 @@ def generate_weekly_pptx(request):
         '{{WEEK_NUMBER}}': f'KW {week_number}',
     })
 
-    # اسلاید template (index 1)
-    template_slide_xml = copy.deepcopy(prs.slides[1]._element)
-    template_slide_layout = prs.slides[1].slide_layout
+    # نگه داشتن مرجع template قبل از حذف
+    template_slide_ref = prs.slides[1]
 
     # حذف اسلاید template
     slide_id_list = prs.slides._sldIdLst
@@ -799,24 +858,7 @@ def generate_weekly_pptx(request):
                 replacements[f'{{{{WORKER_{i}_NAME}}}}'] = ''
 
         # اضافه کردن اسلاید جدید
-        new_slide = prs.slides.add_slide(template_slide_layout)
-        
-        # کپی محتوای template
-        sp_tree = new_slide.shapes._spTree
-        for child in list(sp_tree):
-            sp_tree.remove(child)
-        
-        new_xml = copy.deepcopy(template_slide_xml)
-        for child in new_xml.find('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}spTree', new_xml.nsmap) or []:
-            sp_tree.append(child)
-        
-        # کپی همه المان‌ها
-        from pptx.oxml.ns import qn
-        template_sp_tree = template_slide_xml.find(qn('p:cSld')).find(qn('p:spTree'))
-        for child in list(sp_tree):
-            sp_tree.remove(child)
-        for child in copy.deepcopy(template_sp_tree):
-            sp_tree.append(child)
+        new_slide = duplicate_slide(prs, template_slide_ref)
 
         # جایگزینی متن
         replace_text_in_slide(new_slide, replacements)
@@ -832,7 +874,7 @@ def generate_weekly_pptx(request):
             replace_picture_in_slide(new_slide, f'{{{{WORKER_{i}_PHOTO}}}}', photo_path)
 
         for i in range(len(workers)+1, 7):
-            replace_picture_in_slide(new_slide, f'{{{{WORKER_{i}_PHOTO}}}}', default_photo)
+            remove_picture_from_slide(new_slide, f'{{{{WORKER_{i}_PHOTO}}}}')
 
     output = BytesIO()
     prs.save(output)
@@ -844,3 +886,11 @@ def generate_weekly_pptx(request):
     )
     response['Content-Disposition'] = f'attachment; filename=weekly_plan_kw{week_number}.pptx'
     return response
+def remove_picture_from_slide(slide, placeholder):
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    for shape in slide.shapes:
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+            alt = shape._element.nvPicPr.cNvPr.get('descr', '')
+            if alt == placeholder:
+                shape._element.getparent().remove(shape._element)
+                return
